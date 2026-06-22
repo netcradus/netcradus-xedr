@@ -10,6 +10,7 @@ from app.models.network_telemetry import NetworkTelemetry
 from app.models.file_telemetry import FileTelemetry
 from app.models.persistence_telemetry import PersistenceTelemetry
 from app.models.alert import Alert
+from app.models.command import Command
 
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
@@ -17,6 +18,7 @@ from app.api.admin import router as admin_router
 from app.api.agents import router as agents_router
 from app.api.telemetry import router as telemetry_router
 from app.api.alerts import router as alerts_router
+from app.api.commands import router as commands_router
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
@@ -37,6 +39,7 @@ app.include_router(
     telemetry_router
 )
 app.include_router(alerts_router)
+app.include_router(commands_router)
 
 @app.on_event("startup")
 def startup():
