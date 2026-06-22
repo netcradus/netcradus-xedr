@@ -549,3 +549,115 @@ def detect_parent_child(
 
         db.commit()
 
+def detect_registry_persistence(
+        db,
+        persistence_type: str,
+        entry_name: str,
+        entry_path: str,
+        agent_id: int):
+
+    persistence_type = persistence_type.lower()
+
+    if persistence_type == "registry":
+
+        alert = Alert(
+
+            title="Registry Persistence",
+
+            description=entry_path,
+
+            severity="High",
+
+            mitre_technique="T1547",
+
+            agent_id=agent_id
+
+        )
+
+        db.add(alert)
+
+        db.commit()
+
+def detect_service_persistence(
+        db,
+        persistence_type: str,
+        entry_name: str,
+        entry_path: str,
+        agent_id: int):
+
+    if persistence_type.lower() == "service":
+
+        alert = Alert(
+
+            title="Service Persistence",
+
+            description=entry_name,
+
+            severity="High",
+
+            mitre_technique="T1547",
+
+            agent_id=agent_id
+
+        )
+
+        db.add(alert)
+
+        db.commit()
+
+def detect_scheduled_task(
+        db,
+        persistence_type: str,
+        entry_name: str,
+        entry_path: str,
+        agent_id: int):
+
+    if persistence_type.lower() == "scheduledtask":
+
+        alert = Alert(
+
+            title="Scheduled Task Persistence",
+
+            description=entry_name,
+
+            severity="High",
+
+            mitre_technique="T1547",
+
+            agent_id=agent_id
+
+        )
+
+        db.add(alert)
+
+        db.commit()
+
+def detect_cron_persistence(
+        db,
+        persistence_type: str,
+        entry_name: str,
+        entry_path: str,
+        agent_id: int):
+
+    if persistence_type.lower() == "cron":
+
+        alert = Alert(
+
+            title="Cron Persistence",
+
+            description=entry_name,
+
+            severity="High",
+
+            mitre_technique="T1547",
+
+            agent_id=agent_id
+
+        )
+
+        db.add(alert)
+
+        db.commit()
+
+
+

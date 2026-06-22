@@ -45,6 +45,18 @@ from app.services.detection_service import (
 
 )
 
+from app.services.detection_service import (
+
+    detect_registry_persistence,
+
+    detect_service_persistence,
+
+    detect_scheduled_task,
+
+    detect_cron_persistence
+
+)
+
 
 def save_processes(
         db: Session,
@@ -330,6 +342,62 @@ def save_persistence(
         )
 
         db.add(db_entry)
+
+        detect_registry_persistence(
+
+            db,
+
+            entry.persistence_type,
+
+            entry.entry_name,
+
+            entry.entry_path,
+
+            agent.id
+
+        )
+
+        detect_service_persistence(
+
+            db,
+
+            entry.persistence_type,
+
+            entry.entry_name,
+
+            entry.entry_path,
+
+            agent.id
+
+        )
+
+        detect_scheduled_task(
+
+            db,
+
+            entry.persistence_type,
+
+            entry.entry_name,
+
+            entry.entry_path,
+
+            agent.id
+
+        )
+
+        detect_cron_persistence(
+
+            db,
+
+            entry.persistence_type,
+
+            entry.entry_name,
+
+            entry.entry_path,
+
+            agent.id
+
+        )
 
     db.commit()
 
