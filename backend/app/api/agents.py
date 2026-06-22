@@ -1,0 +1,40 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.database.db import get_db
+
+from app.schemas.agent_schema import AgentRegister
+
+from app.services.agent_service import register_agent
+
+
+router = APIRouter(
+
+    prefix="/agents",
+
+    tags=["Agents"]
+
+)
+
+
+@router.post("/register")
+def create_agent(
+
+        agent: AgentRegister,
+
+        db: Session = Depends(
+            get_db
+        )):
+
+    db_agent = register_agent(
+        db,
+        agent
+    )
+
+    return {
+
+        "agent_id": db_agent.id,
+
+        "agent_token": db_agent.agent_token
+
+    }
