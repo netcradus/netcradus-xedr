@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database.db import get_db
 
 from app.schemas.command_schema import *
+from app.schemas.restorehost_schema import RestoreHostCommand
 
 from app.services.command_service import (
     create_command
@@ -83,6 +84,25 @@ def quarantine_file(
         "quarantine_file",
 
         request.file_path,
+
+        request.agent_id
+
+    )
+
+    return command
+
+@router.post("/restore-host")
+def restore_host(
+        request: RestoreHostCommand,
+        db: Session = Depends(get_db)):
+
+    command = create_command(
+
+        db,
+
+        "restore_host",
+
+        "",
 
         request.agent_id
 
