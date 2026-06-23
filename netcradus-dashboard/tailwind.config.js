@@ -25,6 +25,20 @@ export default {
       borderRadius: {
         card: '14px',
       },
+      keyframes: {
+        fadeInWatermark: {
+          '0%': { opacity: '0', transform: 'scale(0.96)' },
+          '100%': { opacity: '0.15', transform: 'scale(1)' },
+        },
+        fadeInGlow: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+      },
+      animation: {
+        'fade-in-watermark': 'fadeInWatermark 1.6s ease-out 0.15s both',
+        'fade-in-glow': 'fadeInGlow 1.8s ease-out 0.1s both',
+      },
     },
   },
   plugins: [],
