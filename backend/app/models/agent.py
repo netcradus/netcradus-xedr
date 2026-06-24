@@ -25,14 +25,14 @@ class Agent(Base):
 
     agent_version = Column(String)
 
-    status = Column(
-        String,
-        default="Online"
-    )
-
     last_seen = Column(
         DateTime,
         default=datetime.utcnow
+    )
+
+    status = Column(
+        String,
+        default="Online"
     )
 
     agent_token = Column(

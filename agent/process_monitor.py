@@ -56,42 +56,41 @@ def collect_processes(
 
             processes.append({
 
-                "pid": info["pid"],
+                "pid": info.get("pid", 0),
 
-                "ppid": info["ppid"],
+                "ppid": info.get("ppid", 0),
 
-                "parent_process_name": parent_name,
+                "parent_process_name": parent_name or "",
 
-                "process_name": info["name"],
+                "process_name": info.get("name") or "",
 
                 "cmdline": " ".join(
-                    info["cmdline"]
+                    info.get("cmdline") or []
                 ),
 
-                "exe_path": info["exe"],
+                "exe_path": info.get("exe") or "",
 
-                "username": info["username"],
+                "username": info.get("username") or "",
 
                 "sha256": calculate_sha256(
-                    info["exe"]
+                    info.get("exe") or ""
                 )
 
             })
-
         except:
 
             continue
+    
+    # print(processes[:3])
 
-    requests.post(
-
+    response = requests.post(
         f"{server_url}/telemetry/processes",
-
         json={
-
             "agent_token": agent_token,
-
             "processes": processes
-
         }
-
     )
+
+    print("Status:", response.status_code)
+
+    print("Response:", response.text)

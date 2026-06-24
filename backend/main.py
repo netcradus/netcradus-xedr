@@ -22,6 +22,11 @@ from app.api.commands import router as commands_router
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
+from app.services.agent_service import (
+    update_offline_agents
+)
+import threading
+import time
 
 Base.metadata.create_all(bind=engine)
 
@@ -52,6 +57,11 @@ def startup():
 
     db.close()
 
+    threading.Thread(
+        target=offline_monitor,
+        daemon=True
+    ).start()
+
 
 
 
@@ -61,3 +71,20 @@ def root():
     return {
         "message": "SentryXDR Backend Running"
     }
+
+
+def offline_monitor():
+
+    while True:
+
+        db = SessionLocal()
+
+        try:
+
+            update_offline_agents(db)
+
+        finally:
+
+            db.close()
+
+        time.sleep(60)

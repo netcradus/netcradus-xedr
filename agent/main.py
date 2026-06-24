@@ -6,6 +6,7 @@ from network_monitor import collect_network
 from file_monitor import start_file_monitor
 from persistence_monitor import collect_persistence
 from command_executor import execute_command
+from heartbeat import send_heartbeat
 
 
 # Load configuration
@@ -48,11 +49,18 @@ def main():
                 AGENT_TOKEN
             )
 
+            # Heartbeat
+            send_heartbeat(
+                SERVER_URL,
+                AGENT_TOKEN
+            )
+
             # Execute commands
             execute_command(
                 SERVER_URL,
                 AGENT_TOKEN
             )
+
 
             time.sleep(
                 POLL_INTERVAL

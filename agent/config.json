@@ -1,5 +1,5 @@
 {
   "server_url": "http://127.0.0.1:8000",
-  "agent_token": "YOUR_AGENT_TOKEN",
+  "agent_token": "035ee2f1f73a212afc490b4aca43d7f5ef86d96c7b28be49947c0b357298807f",
   "poll_interval": 10
 }

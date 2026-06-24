@@ -6,7 +6,7 @@ from app.models.agent import Agent
 from app.models.tenant import Tenant
 
 from app.schemas.agent_schema import AgentRegister
-
+from datetime import datetime, timedelta
 
 def register_agent(
         db: Session,
@@ -41,3 +41,52 @@ def register_agent(
     db.refresh(db_agent)
 
     return db_agent
+
+from datetime import datetime
+
+
+def update_heartbeat(
+        db,
+        request):
+
+    agent = db.query(
+        Agent
+    ).filter(
+        Agent.agent_token ==
+        request.agent_token
+    ).first()
+
+    if not agent:
+        return False
+
+    agent.hostname = request.hostname
+
+    agent.os_type = request.os_type
+
+    agent.ip_address = request.ip_address
+
+    agent.last_seen = datetime.utcnow()
+
+    agent.status = "Online"
+
+    db.commit()
+
+    return True
+
+
+def update_offline_agents(db):
+
+    threshold = datetime.utcnow() - timedelta(seconds=30)
+
+    agents = db.query(Agent).all()
+
+    for agent in agents:
+
+        if (
+            agent.last_seen and
+            agent.last_seen < threshold
+        ):
+
+            agent.status = "Offline"
+
+    db.commit()

@@ -9,6 +9,14 @@ from app.services.agent_service import register_agent
 from app.models.command import Command
 from app.models.agent import Agent
 
+from app.schemas.heartbeat_schema import (
+    HeartbeatRequest
+)
+
+from app.services.agent_service import (
+    update_heartbeat
+)
+
 
 router = APIRouter(
 
@@ -59,3 +67,63 @@ def get_agent_commands(
     ).all()
 
     return commands
+
+@router.post("/heartbeat")
+def heartbeat(
+        request: HeartbeatRequest,
+        db: Session = Depends(get_db)):
+
+    success = update_heartbeat(
+        db,
+        request
+    )
+
+    if not success:
+
+        return {
+            "status":"invalid agent"
+        }
+
+    return {
+        "status":"online"
+    }
+
+@router.get("/")
+def get_agents(
+        db: Session = Depends(get_db)):
+
+    return db.query(
+        Agent
+    ).all()
+
+
+@router.get("/online")
+def get_online_agents(
+        db: Session = Depends(get_db)):
+
+    return db.query(
+        Agent
+    ).filter(
+        Agent.status == "Online"
+    ).all()
+
+@router.get("/offline")
+def get_offline_agents(
+        db: Session = Depends(get_db)):
+
+    return db.query(
+        Agent
+    ).filter(
+        Agent.status == "Offline"
+    ).all()
+
+@router.get("/{agent_id}")
+def get_agent(
+        agent_id: int,
+        db: Session = Depends(get_db)):
+
+    return db.query(
+        Agent
+    ).filter(
+        Agent.id == agent_id
+    ).first()
