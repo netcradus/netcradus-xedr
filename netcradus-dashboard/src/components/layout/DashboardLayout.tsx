@@ -1,7 +1,7 @@
 
 import type { PropsWithChildren } from 'react'
 import Sidebar from './Sidebar/Sidebar'
-import Footer from './Footer/footer'
+import Footer from './Footer/Footer'
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
   return (
