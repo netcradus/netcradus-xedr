@@ -92,7 +92,9 @@ export default function Sidebar() {
             </div>
             <div className="min-w-0">
               <p className="font-semibold leading-tight tracking-wide truncate">NETCRAD</p>
-              <p className="text-[11px] text-white/50 truncate">Hybrid SIEM + SOAR Platform</p>
+              <p className="text-[11px] text-white/50 truncate">Hybrid SIEM + SOAR
+              <p className="text-[11px] text-white/50 truncate">Platform powered by Netcradus</p>
+              </p>
             </div>
           </div>
           {/* Close button — mobile/tablet drawer only */}
