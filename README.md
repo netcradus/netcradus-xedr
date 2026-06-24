@@ -1,0 +1,92 @@
+# Netcrad Dashboard
+
+A React + TypeScript + Tailwind CSS recreation of the Netcrad security dashboard.
+
+## Setup (VS Code)
+
+1. Extract this folder and open it in VS Code.
+2. Open a terminal and run:
+
+```bash
+npm install
+npm run dev
+```
+
+3. Open the printed local URL (usually `http://localhost:5173`).
+
+## Project Structure
+
+```
+src/
+├── api/            # mock/data fetching layer (swap with real API calls)
+│   ├── dashboardApi.ts
+│   └── authApi.ts  # mock auth backed by localStorage — swap for real API calls
+├── components/
+│   ├── layout/     # Sidebar, Topbar, DashboardLayout
+│   ├── ui/         # Card, Badge, Button, Dropdown (generic primitives)
+│   ├── stats/      # StatCard, StatCardGrid
+│   ├── charts/     # AlertsOverTimeChart, AlertsBySeverityChart, ThreatLandscapeMap
+│   ├── tables/     # RecentAlertsTable, TopEndpointsAtRiskList
+│   └── status/     # StatusBanner
+├── pages/
+│   ├── Auth/       # Login.tsx, Signup.tsx, AuthLayout.tsx (shared brand panel)
+│   └── ...         # One folder per route/sidebar item
+├── hooks/          # useDashboardData (data fetching + refresh)
+├── store/
+│   ├── uiStore.ts    # sidebar, date range, etc.
+│   └── authStore.ts  # user session, login/signup/logout
+├── types/          # Shared TypeScript types
+├── utils/          # severityColors and other helpers
+├── constants/       # NAV_ITEMS used by Sidebar
+├── routes/
+│   ├── AppRoutes.tsx       # all routes, public + protected
+│   └── ProtectedRoute.tsx  # redirects to /login if not authenticated
+└── styles/         # Tailwind global styles
+```
+
+## Authentication
+
+The dashboard is now gated behind a login/signup flow:
+
+- **`/login`** and **`/signup`** are public routes with a split-screen design (brand panel + form),
+  matching the visual language of the rest of the app.
+- Every dashboard route (`/`, `/alerts`, `/incidents`, etc.) is wrapped in `ProtectedRoute`, which
+  redirects unauthenticated visitors to `/login` and remembers where they were trying to go.
+- If you're already signed in, visiting `/login` or `/signup` redirects you straight to the dashboard.
+- **Sign out** is available in two places: the user menu in the Topbar (top-right, click your name),
+  and the account footer at the bottom of the Sidebar.
+- Auth state lives in `useAuthStore` (Zustand) and persists across reloads via `localStorage`
+  (`src/api/authApi.ts`). This is a **mock backend for demo purposes** — accounts created via Signup
+  are stored in the browser, not a real database.
+
+### Connecting a real backend
+
+Everything is written against an async contract (`apiLogin`, `apiSignup`, `apiLogout`,
+`getSession` in `src/api/authApi.ts`). To connect a real API:
+
+1. Replace the bodies of those four functions with real `fetch`/`axios` calls.
+2. Swap `localStorage` session storage for an HTTP-only cookie or token returned by your backend.
+3. Nothing in `authStore.ts`, `ProtectedRoute.tsx`, `Login.tsx`, `Signup.tsx`, `Sidebar.tsx`, or
+   `Topbar.tsx` needs to change, since they only depend on the store's interface.
+
+## Notes
+
+- Currently uses mock data (`src/api/dashboardApi.ts`). Replace `fetchDashboardData` with a real
+  `fetch`/`axios` call to your backend when ready — the rest of the app (hooks, components) won't
+  need to change since they consume the same shape of data.
+- Charts are built with `recharts`. The world map is a simplified SVG placeholder with hotspot dots;
+  swap in `react-simple-maps` for a real geographic map if needed.
+- State management: React `useState`/`useEffect` for data fetching (in `useDashboardData`), Zustand
+  (`useUIStore`) for lightweight UI state like the date range label.
+- Routing: `react-router-dom` v6, with `DashboardLayout` wrapping all pages so the Sidebar persists.
+- Styling: Tailwind CSS utility classes; design tokens (colors, shadows, radius) defined in
+  `tailwind.config.js`.
+
+## Next Steps
+
+- Wire `fetchDashboardData` to a real backend/API.
+- Build out the placeholder pages (Alerts, Incidents, Endpoints, etc.) using the same `Card`,
+  `Badge`, and table components.
+- Connect `src/api/authApi.ts` to a real authentication backend (see "Connecting a real backend" above).
+- Add a notification dropdown panel and settings forms.
+- Add tests with React Testing Library / Playwright.
