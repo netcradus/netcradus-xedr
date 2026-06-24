@@ -1,10 +1,14 @@
 from sqlalchemy.orm import Session
 
-from app.models.alert import Alert
-from app.models.agent import Agent
+from app.services.alert_service import create_alert_if_not_exists
 from collections import defaultdict
-port_scan_cache = defaultdict(set)
-ransomware_cache = defaultdict(int)
+from datetime import datetime, timedelta
+
+PORT_SCAN_WINDOW = timedelta(minutes=5)
+RANSOMWARE_WINDOW = timedelta(minutes=5)
+
+port_scan_cache = {}
+ransomware_cache = {}
 
 
 def detect_encoded_powershell(
@@ -24,23 +28,14 @@ def detect_encoded_powershell(
         )
     ):
 
-        alert = Alert(
-
-            title="Encoded PowerShell Execution",
-
-            description=cmdline,
-
-            severity="High",
-
-            mitre_technique="T1059.001",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Encoded PowerShell Execution",
+            cmdline,
+            "High",
+            "T1059.001",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_mimikatz(
         db,
@@ -67,23 +62,14 @@ def detect_mimikatz(
 
             for pattern in patterns):
 
-        alert = Alert(
-
-            title="Mimikatz Credential Dumping",
-
-            description=cmdline,
-
-            severity="Critical",
-
-            mitre_technique="T1003",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Mimikatz Credential Dumping",
+            cmdline,
+            "Critical",
+            "T1003",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_lsass_dump(
         db,
@@ -108,23 +94,14 @@ def detect_lsass_dump(
 
             for pattern in ["procdump", "lsass"]):
 
-        alert = Alert(
-
-            title="LSASS Dump Attempt",
-
-            description=cmdline,
-
-            severity="Critical",
-
-            mitre_technique="T1003.001",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "LSASS Dump Attempt",
+            cmdline,
+            "Critical",
+            "T1003.001",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_psexec(
         db,
@@ -147,23 +124,14 @@ def detect_psexec(
 
             for p in patterns):
 
-        alert = Alert(
-
-            title="PsExec Remote Execution",
-
-            description=cmdline,
-
-            severity="High",
-
-            mitre_technique="T1021",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "PsExec Remote Execution",
+            cmdline,
+            "High",
+            "T1021",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_reverse_shell(
         db,
@@ -184,23 +152,14 @@ def detect_reverse_shell(
 
     if remote_port in suspicious_ports:
 
-        alert = Alert(
-
-            title="Possible Reverse Shell",
-
-            description=f"{remote_ip}:{remote_port}",
-
-            severity="Critical",
-
-            mitre_technique="T1059",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Possible Reverse Shell",
+            f"{remote_ip}:{remote_port}",
+            "Critical",
+            "T1059",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_port_scan(
         db,
@@ -208,31 +167,43 @@ def detect_port_scan(
         remote_port: int,
         agent_id: int):
 
-    port_scan_cache[remote_ip].add(
+    now = datetime.utcnow()
+
+    cache_key = (
+        agent_id,
+        remote_ip
+    )
+
+    entry = port_scan_cache.get(cache_key)
+
+    if (
+        not entry
+        or now - entry["started_at"] > PORT_SCAN_WINDOW
+    ):
+
+        entry = {
+            "started_at": now,
+            "ports": set()
+        }
+
+        port_scan_cache[cache_key] = entry
+
+    entry["ports"].add(
         remote_port
     )
 
     if len(
-            port_scan_cache[remote_ip]
+            entry["ports"]
     ) >= 20:
 
-        alert = Alert(
-
-            title="Port Scanning Activity",
-
-            description=f"{remote_ip}",
-
-            severity="High",
-
-            mitre_technique="T1046",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Port Scanning Activity",
+            f"{remote_ip}",
+            "High",
+            "T1046",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_malware_drop(
         db,
@@ -259,23 +230,14 @@ def detect_malware_drop(
 
             for name in suspicious_files):
 
-        alert = Alert(
-
-            title="Possible Malware Drop",
-
-            description=file_path,
-
-            severity="High",
-
-            mitre_technique="T1105",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Possible Malware Drop",
+            file_path,
+            "High",
+            "T1105",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_writable_directory_execution(
         db,
@@ -304,23 +266,14 @@ def detect_writable_directory_execution(
 
             for path in suspicious_paths):
 
-        alert = Alert(
-
-            title="Writable Directory Execution",
-
-            description=file_path,
-
-            severity="High",
-
-            mitre_technique="T1204",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Writable Directory Execution",
+            file_path,
+            "High",
+            "T1204",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_ransomware(
         db,
@@ -330,27 +283,34 @@ def detect_ransomware(
 
     if event_type == "modified":
 
-        ransomware_cache[agent_id] += 1
+        now = datetime.utcnow()
 
-        if ransomware_cache[agent_id] >= 100:
+        entry = ransomware_cache.get(agent_id)
 
-            alert = Alert(
+        if (
+            not entry
+            or now - entry["started_at"] > RANSOMWARE_WINDOW
+        ):
 
-                title="Possible Ransomware Activity",
+            entry = {
+                "started_at": now,
+                "count": 0
+            }
 
-                description="Mass file modifications",
+            ransomware_cache[agent_id] = entry
 
-                severity="Critical",
+        entry["count"] += 1
 
-                mitre_technique="T1486",
+        if entry["count"] >= 100:
 
-                agent_id=agent_id
-
+            create_alert_if_not_exists(
+                db,
+                "Possible Ransomware Activity",
+                "Mass file modifications",
+                "Critical",
+                "T1486",
+                agent_id
             )
-
-            db.add(alert)
-
-            db.commit()
 
 def detect_certutil(
         db,
@@ -369,23 +329,14 @@ def detect_certutil(
             )
     ):
 
-        alert = Alert(
-
-            title="Certutil Abuse",
-
-            description=cmdline,
-
-            severity="High",
-
-            mitre_technique="T1105",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Certutil Abuse",
+            cmdline,
+            "High",
+            "T1105",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_rundll32(
         db,
@@ -397,23 +348,14 @@ def detect_rundll32(
 
     if process_name == "rundll32.exe":
 
-        alert = Alert(
-
-            title="Rundll32 Execution",
-
-            description=cmdline,
-
-            severity="Medium",
-
-            mitre_technique="T1218.011",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Rundll32 Execution",
+            cmdline,
+            "Medium",
+            "T1218.011",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_regsvr32(
         db,
@@ -425,23 +367,14 @@ def detect_regsvr32(
 
     if process_name == "regsvr32.exe":
 
-        alert = Alert(
-
-            title="Regsvr32 Execution",
-
-            description=cmdline,
-
-            severity="High",
-
-            mitre_technique="T1218.010",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Regsvr32 Execution",
+            cmdline,
+            "High",
+            "T1218.010",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_mshta(
         db,
@@ -453,23 +386,14 @@ def detect_mshta(
 
     if process_name == "mshta.exe":
 
-        alert = Alert(
-
-            title="Mshta Execution",
-
-            description=cmdline,
-
-            severity="High",
-
-            mitre_technique="T1218.005",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Mshta Execution",
+            cmdline,
+            "High",
+            "T1218.005",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_wmic(
         db,
@@ -481,23 +405,14 @@ def detect_wmic(
 
     if process_name == "wmic.exe":
 
-        alert = Alert(
-
-            title="WMIC Execution",
-
-            description=cmdline,
-
-            severity="Medium",
-
-            mitre_technique="T1047",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "WMIC Execution",
+            cmdline,
+            "Medium",
+            "T1047",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_parent_child(
         db,
@@ -531,23 +446,14 @@ def detect_parent_child(
             child_process
     ) in suspicious_pairs:
 
-        alert = Alert(
-
-            title="Suspicious Parent-Child Process",
-
-            description=f"{parent_process} -> {child_process}",
-
-            severity="High",
-
-            mitre_technique="T1204",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Suspicious Parent-Child Process",
+            f"{parent_process} -> {child_process}",
+            "High",
+            "T1204",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_registry_persistence(
         db,
@@ -560,23 +466,14 @@ def detect_registry_persistence(
 
     if persistence_type == "registry":
 
-        alert = Alert(
-
-            title="Registry Persistence",
-
-            description=entry_path,
-
-            severity="High",
-
-            mitre_technique="T1547",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Registry Persistence",
+            entry_path,
+            "High",
+            "T1547",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_service_persistence(
         db,
@@ -587,23 +484,14 @@ def detect_service_persistence(
 
     if persistence_type.lower() == "service":
 
-        alert = Alert(
-
-            title="Service Persistence",
-
-            description=entry_name,
-
-            severity="High",
-
-            mitre_technique="T1547",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Service Persistence",
+            entry_name,
+            "High",
+            "T1547",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_scheduled_task(
         db,
@@ -614,23 +502,14 @@ def detect_scheduled_task(
 
     if persistence_type.lower() == "scheduledtask":
 
-        alert = Alert(
-
-            title="Scheduled Task Persistence",
-
-            description=entry_name,
-
-            severity="High",
-
-            mitre_technique="T1547",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Scheduled Task Persistence",
+            entry_name,
+            "High",
+            "T1547",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 def detect_cron_persistence(
         db,
@@ -641,23 +520,14 @@ def detect_cron_persistence(
 
     if persistence_type.lower() == "cron":
 
-        alert = Alert(
-
-            title="Cron Persistence",
-
-            description=entry_name,
-
-            severity="High",
-
-            mitre_technique="T1547",
-
-            agent_id=agent_id
-
+        create_alert_if_not_exists(
+            db,
+            "Cron Persistence",
+            entry_name,
+            "High",
+            "T1547",
+            agent_id
         )
-
-        db.add(alert)
-
-        db.commit()
 
 
 

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class AgentRegister(BaseModel):
@@ -10,3 +11,5 @@ class AgentRegister(BaseModel):
     os_type: str
 
     agent_version: str
+
+    registration_token: Optional[str] = None

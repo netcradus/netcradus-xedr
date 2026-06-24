@@ -4,15 +4,17 @@ from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
 from fastapi.security import OAuth2PasswordBearer
 
+from app.core.config import settings
+
 # This tells FastAPI that the token should be fetched from the "/auth/login" endpoint
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # Updated: Using pwdlib explicitly configured with BcryptHasher
 pwd_context = PasswordHash([BcryptHasher()])
 
-SECRET_KEY = "your-super-secret-key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 
 def hash_password(password: str) -> str:

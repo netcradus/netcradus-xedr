@@ -180,7 +180,9 @@ def collect_persistence(
                 "entries":
                 entries
 
-            }
+            },
+
+            timeout=10
 
         )
 

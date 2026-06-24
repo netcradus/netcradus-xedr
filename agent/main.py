@@ -1,5 +1,9 @@
 import json
+import os
+import platform
+import socket
 import time
+import requests
 
 from process_monitor import collect_processes
 from network_monitor import collect_network
@@ -10,17 +14,74 @@ from heartbeat import send_heartbeat
 
 
 # Load configuration
-with open("config.json", "r") as f:
+CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "config.json"
+)
+
+with open(CONFIG_PATH, "r") as f:
     config = json.load(f)
 
-SERVER_URL = config["server_url"]
-AGENT_TOKEN = config["agent_token"]
+SERVER_URL = os.getenv(
+    "SENTRYXDR_SERVER_URL",
+    config["server_url"]
+)
+
+AGENT_TOKEN = os.getenv(
+    "SENTRYXDR_AGENT_TOKEN",
+    config.get("agent_token", "")
+)
+
 POLL_INTERVAL = config.get("poll_interval", 10)
+
+
+def register_agent_if_needed():
+
+    global AGENT_TOKEN
+
+    if AGENT_TOKEN:
+
+        return
+
+    hostname = socket.gethostname()
+
+    response = requests.post(
+        f"{SERVER_URL}/agents/register",
+        json={
+            "hostname": hostname,
+            "ip_address": socket.gethostbyname(hostname),
+            "os_type": platform.system(),
+            "agent_version": "1.0.0",
+            "registration_token": os.getenv(
+                "SENTRYXDR_AGENT_REGISTRATION_TOKEN",
+                config.get("registration_token", "")
+            )
+        },
+        timeout=10
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    AGENT_TOKEN = data["agent_token"]
+
+    config["agent_token"] = AGENT_TOKEN
+
+    with open(CONFIG_PATH, "w") as f:
+
+        json.dump(
+            config,
+            f,
+            indent=2
+        )
 
 
 def main():
 
     print("===== SentryXDR Agent Started =====")
+
+    register_agent_if_needed()
 
     observer = start_file_monitor(
         SERVER_URL,

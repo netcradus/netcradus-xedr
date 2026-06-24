@@ -30,6 +30,11 @@ class Alert(Base):
         default="Open"
     )
 
+    occurrence_count = Column(
+        Integer,
+        default=1
+    )
+
     timestamp = Column(
         DateTime,
         default=datetime.utcnow

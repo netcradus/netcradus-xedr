@@ -1,16 +1,7 @@
 from fastapi import FastAPI
 
 from app.database.db import engine, Base, SessionLocal
-from app.models.user import User
-from app.models.role import Role
-from app.models.tenant import Tenant
-from app.models.agent import Agent
-from app.models.process_telemetry import ProcessTelemetry
-from app.models.network_telemetry import NetworkTelemetry
-from app.models.file_telemetry import FileTelemetry
-from app.models.persistence_telemetry import PersistenceTelemetry
-from app.models.alert import Alert
-from app.models.command import Command
+import app.models  # Registers SQLAlchemy models on Base.metadata.
 
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router

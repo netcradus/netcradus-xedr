@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.db import get_db
+from app.core.permissions import admin_required
+from app.models.agent import Agent
+from app.models.user import User
 
 from app.schemas.command_schema import *
 from app.schemas.restorehost_schema import RestoreHostCommand
@@ -15,10 +18,38 @@ router = APIRouter(
     tags=["SOAR"]
 )
 
+
+def validate_agent_access(
+        db: Session,
+        agent_id: int,
+        current_user: User):
+
+    agent = db.query(Agent).filter(
+        Agent.id == agent_id,
+        Agent.tenant_id == current_user.tenant_id
+    ).first()
+
+    if not agent:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Agent not found"
+        )
+
+    return agent
+
+
 @router.post("/kill-process")
 def kill_process(
         request: KillProcessCommand,
+        current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
+
+    validate_agent_access(
+        db,
+        request.agent_id,
+        current_user
+    )
 
     command = create_command(
 
@@ -37,7 +68,14 @@ def kill_process(
 @router.post("/isolate-host")
 def isolate_host(
         request: IsolateHostCommand,
+        current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
+
+    validate_agent_access(
+        db,
+        request.agent_id,
+        current_user
+    )
 
     command = create_command(
 
@@ -56,7 +94,14 @@ def isolate_host(
 @router.post("/block-ip")
 def block_ip(
         request: BlockIPCommand,
+        current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
+
+    validate_agent_access(
+        db,
+        request.agent_id,
+        current_user
+    )
 
     command = create_command(
 
@@ -75,7 +120,14 @@ def block_ip(
 @router.post("/quarantine-file")
 def quarantine_file(
         request: QuarantineFileCommand,
+        current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
+
+    validate_agent_access(
+        db,
+        request.agent_id,
+        current_user
+    )
 
     command = create_command(
 
@@ -94,7 +146,14 @@ def quarantine_file(
 @router.post("/restore-host")
 def restore_host(
         request: RestoreHostCommand,
+        current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
+
+    validate_agent_access(
+        db,
+        request.agent_id,
+        current_user
+    )
 
     command = create_command(
 

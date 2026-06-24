@@ -40,6 +40,8 @@ def collect_network(
 
             "connections": connections
 
-        }
+        },
+
+        timeout=10
 
     )

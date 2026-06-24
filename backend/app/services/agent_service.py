@@ -1,7 +1,9 @@
 import secrets
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.agent import Agent
 from app.models.tenant import Tenant
 
@@ -11,6 +13,16 @@ from datetime import datetime, timedelta
 def register_agent(
         db: Session,
         agent: AgentRegister):
+
+    if (
+        settings.agent_registration_token
+        and agent.registration_token != settings.agent_registration_token
+    ):
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid agent registration token"
+        )
 
     tenant = db.query(
         Tenant

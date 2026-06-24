@@ -26,10 +26,16 @@ class Command(Base):
         default="Pending"
     )
 
+    result = Column(String)
+
+    error = Column(String)
+
     timestamp = Column(
         DateTime,
         default=datetime.utcnow
     )
+
+    completed_at = Column(DateTime)
 
     agent_id = Column(
         Integer,

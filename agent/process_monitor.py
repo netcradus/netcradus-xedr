@@ -88,7 +88,8 @@ def collect_processes(
         json={
             "agent_token": agent_token,
             "processes": processes
-        }
+        },
+        timeout=10
     )
 
     print("Status:", response.status_code)
