@@ -1,7 +1,39 @@
+import hashlib
 import requests
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
+
+def calculate_hashes(file_path):
+
+    hashes = {
+        "sha256": None,
+        "md5": None
+    }
+
+    try:
+
+        sha256 = hashlib.sha256()
+        md5 = hashlib.md5()
+
+        with open(file_path, "rb") as file:
+
+            for chunk in iter(
+                    lambda: file.read(1024 * 1024),
+                    b""):
+
+                sha256.update(chunk)
+                md5.update(chunk)
+
+        hashes["sha256"] = sha256.hexdigest()
+        hashes["md5"] = md5.hexdigest()
+
+    except Exception:
+
+        pass
+
+    return hashes
 
 
 class FileHandler(FileSystemEventHandler):
@@ -22,6 +54,8 @@ class FileHandler(FileSystemEventHandler):
 
         try:
 
+            hashes = calculate_hashes(file_path)
+
             requests.post(
 
                 f"{self.server_url}/telemetry/files",
@@ -36,7 +70,11 @@ class FileHandler(FileSystemEventHandler):
 
                             "event_type": event_type,
 
-                            "file_path": file_path
+                            "file_path": file_path,
+
+                            "sha256": hashes["sha256"],
+
+                            "md5": hashes["md5"]
 
                         }
 

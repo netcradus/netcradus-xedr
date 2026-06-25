@@ -101,6 +101,12 @@ pip install -r requirements.txt
 
 ## Start Backend
 
+Apply database migrations first:
+
+```bash
+alembic upgrade head
+```
+
 ```bash
 uvicorn main:app --reload
 ```

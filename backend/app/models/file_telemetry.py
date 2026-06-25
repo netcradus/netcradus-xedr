@@ -21,6 +21,10 @@ class FileTelemetry(Base):
 
     file_path = Column(String)
 
+    sha256 = Column(String)
+
+    md5 = Column(String)
+
     timestamp = Column(
         DateTime,
         default=datetime.utcnow

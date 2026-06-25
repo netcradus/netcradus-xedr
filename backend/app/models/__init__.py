@@ -2,6 +2,7 @@ from app.models.agent import Agent
 from app.models.alert import Alert
 from app.models.command import Command
 from app.models.file_telemetry import FileTelemetry
+from app.models.ioc import IOC
 from app.models.network_telemetry import NetworkTelemetry
 from app.models.persistence_telemetry import PersistenceTelemetry
 from app.models.process_telemetry import ProcessTelemetry
@@ -14,6 +15,7 @@ __all__ = [
     "Alert",
     "Command",
     "FileTelemetry",
+    "IOC",
     "NetworkTelemetry",
     "PersistenceTelemetry",
     "ProcessTelemetry",

@@ -57,6 +57,14 @@ from app.services.detection_service import (
 
 )
 
+from app.services.ioc_service import (
+    match_file_iocs,
+    match_network_iocs,
+    match_persistence_iocs,
+    match_process_iocs,
+    match_text_iocs
+)
+
 
 def save_processes(
         db: Session,
@@ -96,6 +104,19 @@ def save_processes(
         )
 
         db.add(db_process)
+
+        match_process_iocs(
+            db,
+            process,
+            agent.id
+        )
+
+        match_text_iocs(
+            db,
+            process.cmdline,
+            "process command line",
+            agent.id
+        )
 
         detect_encoded_powershell(
 
@@ -229,6 +250,12 @@ def save_connections(
 
         db.add(db_conn)
 
+        match_network_iocs(
+            db,
+            conn,
+            agent.id
+        )
+
         detect_reverse_shell(
             db,
             conn.remote_ip,
@@ -270,11 +297,21 @@ def save_file_events(
 
             file_path=event.file_path,
 
+            sha256=event.sha256,
+
+            md5=event.md5,
+
             agent_id=agent.id
 
         )
 
         db.add(db_event)
+
+        match_file_iocs(
+            db,
+            event,
+            agent.id
+        )
 
         detect_malware_drop(
 
@@ -342,6 +379,12 @@ def save_persistence(
         )
 
         db.add(db_entry)
+
+        match_persistence_iocs(
+            db,
+            entry,
+            agent.id
+        )
 
         detect_registry_persistence(
 

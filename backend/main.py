@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 
-from app.database.db import engine, Base, SessionLocal
-import app.models  # Registers SQLAlchemy models on Base.metadata.
+from app.database.db import SessionLocal
 
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
@@ -10,6 +9,7 @@ from app.api.agents import router as agents_router
 from app.api.telemetry import router as telemetry_router
 from app.api.alerts import router as alerts_router
 from app.api.commands import router as commands_router
+from app.api.iocs import router as iocs_router
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
@@ -18,8 +18,6 @@ from app.services.agent_service import (
 )
 import threading
 import time
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="SentryXDR"
@@ -36,6 +34,7 @@ app.include_router(
 )
 app.include_router(alerts_router)
 app.include_router(commands_router)
+app.include_router(iocs_router)
 
 @app.on_event("startup")
 def startup():
