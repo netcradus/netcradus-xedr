@@ -1,3 +1,48 @@
+// /** @type {import('tailwindcss').Config} */
+// export default {
+//   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+//   theme: {
+//     extend: {
+//       colors: {
+//         navy: {
+//           900: '#0B1437',
+//           800: '#101A4A',
+//           700: '#16205B',
+//         },
+//         brand: {
+//           blue: '#3B6FE0',
+//         },
+//         severity: {
+//           high: '#E14D4D',
+//           medium: '#F2A93C',
+//           low: '#2FB870',
+//           info: '#9AA3B2',
+//         },
+//       },
+//       boxShadow: {
+//         card: '0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04)',
+//       },
+//       borderRadius: {
+//         card: '14px',
+//       },
+//       keyframes: {
+//         fadeInWatermark: {
+//           '0%': { opacity: '0', transform: 'scale(0.96)' },
+//           '100%': { opacity: '0.15', transform: 'scale(1)' },
+//         },
+//         fadeInGlow: {
+//           '0%': { opacity: '0' },
+//           '100%': { opacity: '1' },
+//         },
+//       },
+//       animation: {
+//         'fade-in-watermark': 'fadeInWatermark 1.6s ease-out 0.15s both',
+//         'fade-in-glow': 'fadeInGlow 1.8s ease-out 0.1s both',
+//       },
+//     },
+//   },
+//   plugins: [],
+// }
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -18,6 +63,15 @@ export default {
           low: '#2FB870',
           info: '#9AA3B2',
         },
+        // 👇 ADD THIS NEW BLOCK HERE
+        sidebar: {
+          primary: '#08163A',
+          secondary: '#0D1F52',
+          active: '#2563EB',
+          hover: '#1E40AF',
+          border: 'rgba(255, 255, 255, 0.08)',
+        },
+        // 👆 END OF NEW BLOCK
       },
       boxShadow: {
         card: '0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04)',

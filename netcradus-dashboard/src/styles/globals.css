@@ -1,3 +1,4 @@
+/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,4 +9,41 @@ html, body, #root {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+/* ===== Sidebar theme ===== */
+.sidebar {
+  background: #08163A;
+}
+
+/* Any dropdown/menu/select panel rendered inside the sidebar inherits the
+   dark navy theme instead of the browser/Tailwind default white */
+.sidebar select,
+.sidebar option,
+.sidebar [role='menu'],
+.sidebar [role='listbox'],
+.sidebar .dropdown-panel {
+  background-color: #0D1F52 !important;
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Firefox scrollbar */
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: #1E40AF #08163A;
+}
+
+/* Webkit scrollbar (Chrome, Edge, Safari) */
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: #08163A;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: #1E40AF;
+  border-radius: 999px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #2563EB;
 }
