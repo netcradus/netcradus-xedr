@@ -1,5 +1,7 @@
+
 import { ArrowUp, ArrowDown, ShieldCheck, ShieldAlert, Target, Monitor } from 'lucide-react'
 import Card from '@/components/ui/Card/Card'
+import CardMenu from '@/components/ui/CardMenu/CardMenu'
 import type { StatCardData } from '@/types/dashboard.types'
 
 const ICONS: Record<string, React.ElementType> = {
@@ -23,8 +25,11 @@ export default function StatCard({ data }: { data: StatCardData }) {
 
   return (
     <Card className="flex flex-col gap-4">
-      <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${ICON_BG[data.icon]}`}>
-        <Icon size={20} />
+      <div className="flex items-start justify-between">
+        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${ICON_BG[data.icon]}`}>
+          <Icon size={20} />
+        </div>
+        <CardMenu ariaLabel={`${data.label} card actions`} />
       </div>
       <div>
         <p className="text-sm text-gray-500">{data.label}</p>

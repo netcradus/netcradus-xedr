@@ -1,3 +1,4 @@
+
 import Topbar from '@/components/layout/Topbar/Topbar'
 import StatCardGrid from '@/components/stats/StatCardGrid'
 import AlertsOverTimeChart from '@/components/charts/AlertsOverTimeChart'
@@ -22,7 +23,7 @@ export default function Dashboard() {
     <div className="pb-8">
       <Topbar title="Dashboard" subtitle="Hybrid SIEM + SOAR overview — detection, response & exposure" onRefresh={refresh} />
 
-      <div className="px-8 space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 space-y-6">
         <StatCardGrid items={data.statCards} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

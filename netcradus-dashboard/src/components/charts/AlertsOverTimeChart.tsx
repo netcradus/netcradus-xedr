@@ -1,15 +1,22 @@
+
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Card from '@/components/ui/Card/Card'
 import Dropdown from '@/components/ui/Dropdown/Dropdown'
+import CardMenu from '@/components/ui/CardMenu/CardMenu'
 import type { AlertTrendPoint } from '@/types/dashboard.types'
 
 export default function AlertsOverTimeChart({ data }: { data: AlertTrendPoint[] }) {
   return (
-    <Card className="h-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-900">Alerts Over Time</h3>
-        <Dropdown label="7 Days" options={['7 Days', '14 Days', '30 Days']} />
-      </div>
+    <Card
+      className="h-full"
+      title="Alerts Over Time"
+      actions={
+        <>
+          <Dropdown label="7 Days" options={['7 Days', '14 Days', '30 Days']} />
+          <CardMenu ariaLabel="Alerts Over Time card actions" />
+        </>
+      }
+    >
       <ResponsiveContainer width="100%" height={260}>
         <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
           <defs>

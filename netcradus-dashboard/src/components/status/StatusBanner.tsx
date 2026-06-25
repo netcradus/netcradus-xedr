@@ -1,3 +1,4 @@
+
 import { ShieldCheck, CheckCircle2 } from 'lucide-react'
 import Card from '@/components/ui/Card/Card'
 import Button from '@/components/ui/Button/Button'
@@ -15,7 +16,7 @@ export default function StatusBanner() {
         </div>
       </div>
 
-      <div className="flex items-center gap-8 text-sm">
+      <div className="flex flex-wrap items-center gap-4 sm:gap-8 text-sm">
         <div className="flex items-center gap-2">
           <CheckCircle2 size={16} className="text-green-500" />
           <div>

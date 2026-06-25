@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import Card from '@/components/ui/Card/Card'
+import CardMenu from '@/components/ui/CardMenu/CardMenu'
 import { severityColor } from '@/utils/severityColors'
 import type { SeverityBreakdown } from '@/types/dashboard.types'
 
@@ -7,8 +8,7 @@ export default function AlertsBySeverityChart({ data }: { data: SeverityBreakdow
   const total = data.reduce((sum, d) => sum + d.count, 0)
 
   return (
-    <Card>
-      <h3 className="font-semibold text-gray-900 mb-4">Alerts by Severity</h3>
+    <Card title="Alerts by Severity" actions={<CardMenu ariaLabel="Alerts by Severity card actions" />}>
       <div className="flex items-center gap-4">
         <div className="relative w-[150px] h-[150px] shrink-0">
           <ResponsiveContainer width="100%" height="100%">

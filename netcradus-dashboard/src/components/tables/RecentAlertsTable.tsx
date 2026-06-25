@@ -1,3 +1,4 @@
+
 import { ShieldAlert, Grid3x3, Globe, Flag } from 'lucide-react'
 import Card from '@/components/ui/Card/Card'
 import Badge from '@/components/ui/Badge/Badge'
@@ -24,41 +25,43 @@ export default function RecentAlertsTable({ alerts }: { alerts: RecentAlert[] })
         <h3 className="font-semibold text-gray-900">Recent Alerts</h3>
       </div>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
-            <th className="font-medium py-2">Alert</th>
-            <th className="font-medium py-2">Endpoint</th>
-            <th className="font-medium py-2">Severity</th>
-            <th className="font-medium py-2">Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          {alerts.map((alert) => {
-            const Icon = ICONS[alert.icon]
-            return (
-              <tr key={alert.id} className="border-b border-gray-50 last:border-0">
-                <td className="py-3 pr-4">
-                  <div className="flex items-start gap-3">
-                    <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${ICON_BG[alert.severity]}`}>
-                      <Icon size={16} />
-                    </span>
-                    <div>
-                      <p className="font-medium text-gray-900">{alert.title}</p>
-                      <p className="text-xs text-gray-400">{alert.description}</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
+              <th className="font-medium py-2">Alert</th>
+              <th className="font-medium py-2">Endpoint</th>
+              <th className="font-medium py-2">Severity</th>
+              <th className="font-medium py-2">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {alerts.map((alert) => {
+              const Icon = ICONS[alert.icon]
+              return (
+                <tr key={alert.id} className="border-b border-gray-50 last:border-0">
+                  <td className="py-3 pr-4">
+                    <div className="flex items-start gap-3">
+                      <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${ICON_BG[alert.severity]}`}>
+                        <Icon size={16} />
+                      </span>
+                      <div>
+                        <p className="font-medium text-gray-900 whitespace-nowrap">{alert.title}</p>
+                        <p className="text-xs text-gray-400 whitespace-nowrap">{alert.description}</p>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td className="py-3 pr-4 text-gray-600">{alert.endpoint}</td>
-                <td className="py-3 pr-4">
-                  <Badge severity={alert.severity} />
-                </td>
-                <td className="py-3 text-gray-400">{alert.time}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                  </td>
+                  <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">{alert.endpoint}</td>
+                  <td className="py-3 pr-4">
+                    <Badge severity={alert.severity} />
+                  </td>
+                  <td className="py-3 text-gray-400 whitespace-nowrap">{alert.time}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
 
       <a href="#" className="inline-block mt-4 text-sm text-brand-blue hover:underline">
         View all alerts →

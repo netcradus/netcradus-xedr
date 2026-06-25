@@ -1,12 +1,12 @@
 import { Monitor } from 'lucide-react'
 import Card from '@/components/ui/Card/Card'
 import Badge from '@/components/ui/Badge/Badge'
+import CardMenu from '@/components/ui/CardMenu/CardMenu'
 import type { RiskyEndpoint } from '@/types/dashboard.types'
 
 export default function TopEndpointsAtRiskList({ endpoints }: { endpoints: RiskyEndpoint[] }) {
   return (
-    <Card>
-      <h3 className="font-semibold text-gray-900 mb-4">Top Assets at Risk</h3>
+    <Card title="Top Assets at Risk" actions={<CardMenu ariaLabel="Top Assets at Risk card actions" />}>
       <ul className="space-y-3">
         {endpoints.map((ep) => (
           <li key={ep.id} className="flex items-center justify-between text-sm">

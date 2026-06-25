@@ -1,4 +1,5 @@
 import Card from '@/components/ui/Card/Card'
+import CardMenu from '@/components/ui/CardMenu/CardMenu'
 import type { ThreatItem } from '@/types/dashboard.types'
 
 interface Hotspot {
@@ -16,8 +17,7 @@ export default function ThreatLandscapeMap({
   hotspots: Hotspot[]
 }) {
   return (
-    <Card>
-      <h3 className="font-semibold text-gray-900 mb-4">Threat Landscape</h3>
+    <Card title="Threat Landscape" actions={<CardMenu ariaLabel="Threat Landscape card actions" />}>
       <div className="flex flex-col lg:flex-row gap-6">
         {/* World map placeholder with hotspot dots */}
         <div className="relative flex-1 h-[180px] rounded-lg bg-gray-50 overflow-hidden">
