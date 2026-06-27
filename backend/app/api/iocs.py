@@ -19,6 +19,7 @@ from app.services.ioc_service import (
     search_ioc,
     update_ioc
 )
+from app.services.enrichment_service import enrich_ioc_background
 
 router = APIRouter(
     prefix="/iocs",
@@ -38,11 +39,15 @@ def create_ioc_endpoint(
 
     try:
 
-        return create_ioc(
+        ioc = create_ioc(
             db,
             request,
             current_user.email
         )
+
+        enrich_ioc_background(ioc.id, current_user.tenant_id)
+
+        return ioc
 
     except IntegrityError:
 

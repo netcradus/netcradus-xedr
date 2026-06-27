@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.db import get_db
-from app.core.permissions import analyst_required
+from app.core.permissions import analyst_required, admin_required
 
 from app.schemas.agent_schema import AgentRegister
 from app.schemas.command_schema import CommandCompleteRequest
@@ -12,6 +12,7 @@ from app.schemas.command_schema import CommandCompleteRequest
 from app.services.agent_service import register_agent
 from app.models.command import Command
 from app.models.agent import Agent
+from app.models.tenant import Tenant
 from app.models.user import User
 
 from app.schemas.heartbeat_schema import (
@@ -145,6 +146,18 @@ def get_agents(
     ).filter(
         Agent.tenant_id == current_user.tenant_id
     ).all()
+
+
+@router.get("/onboarding")
+def get_onboarding_info(
+        current_user: User = Depends(admin_required),
+        db: Session = Depends(get_db)):
+    """Returns tenant API key and agent install instructions."""
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    return {
+        "tenant_name": tenant.name if tenant else "Default",
+        "tenant_api_key": tenant.api_key if tenant else None,
+    }
 
 
 @router.get("/online")

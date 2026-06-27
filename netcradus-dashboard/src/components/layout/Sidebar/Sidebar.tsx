@@ -7,7 +7,6 @@ import {
   CircleAlert,
   Monitor,
   Radar,
-  Crosshair,
   Workflow,
   FileText,
   Plug,
@@ -16,6 +15,8 @@ import {
   Headphones,
   LogOut,
   X,
+  Sparkles,
+  Building2,
 } from 'lucide-react'
 import { NAV_ITEMS, type NavItem } from '@/constants/navItems'
 import { useAuthStore } from '@/store/authStore'
@@ -27,12 +28,13 @@ const ICONS: Record<NavItem['icon'], React.ElementType> = {
   incidents: CircleAlert,
   assets: Monitor,
   threatIntel: Radar,
-  penTesting: Crosshair,
   playbooks: Workflow,
+  aiQuery: Sparkles,
   reports: FileText,
   integrations: Plug,
   settings: Settings,
   auditLogs: ScrollText,
+  superAdmin: Building2,
 }
 
 export default function Sidebar() {
@@ -99,7 +101,10 @@ export default function Sidebar() {
           scrolls — but the footer can never be pushed off-screen again.
         */}
         <nav className="sidebar-nav flex-1 min-h-0 mt-4 px-3 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter((item) => {
+            if (item.id === 'super-admin') return user?.role === 'SuperAdmin'
+            return true
+          }).map((item) => {
             const Icon = ICONS[item.icon]
             return (
               <NavLink

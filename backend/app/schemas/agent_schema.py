@@ -13,3 +13,5 @@ class AgentRegister(BaseModel):
     agent_version: str
 
     registration_token: Optional[str] = None
+
+    tenant_api_key: Optional[str] = None

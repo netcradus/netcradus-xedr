@@ -1,89 +1,27 @@
 import type { AuthUser, LoginPayload, SignupPayload, AuthResult } from '@/types/auth.types'
+import type { BackendUser } from '@/types/api.types'
+import { BASE_URL, apiFetch, setToken, clearToken } from '@/api/client'
 
-/**
- * Mock auth layer backed by localStorage.
- *
- * This simulates a backend so the rest of the app (routes, store, UI) is
- * written against a realistic async contract. To connect a real backend,
- * replace the bodies of `login`, `signup`, and `logout` below with actual
- * fetch/axios calls to your API — nothing else in the app needs to change.
- */
-
-const USERS_KEY = 'netcrad_users'
 const SESSION_KEY = 'netcrad_session'
 
-interface StoredUser extends AuthUser {
-  password: string
-}
-
-function getStoredUsers(): StoredUser[] {
-  try {
-    const raw = localStorage.getItem(USERS_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
+function mapBackendUser(u: BackendUser): AuthUser {
+  const parts = (u.name ?? '').trim().split(' ')
+  const firstName = parts[0] ?? ''
+  const lastName = parts.slice(1).join(' ') || ''
+  const initials = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase() || 'U'
+  return {
+    id: String(u.id),
+    firstName,
+    lastName,
+    email: u.email,
+    company: u.tenant?.name ?? '',
+    initials,
+    role: u.role?.name ?? 'Viewer',
   }
 }
 
-function saveStoredUsers(users: StoredUser[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
-
-function makeInitials(firstName: string, lastName: string) {
-  return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
-}
-
-function delay(ms = 350) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-export async function apiSignup(payload: SignupPayload): Promise<AuthResult & { user?: AuthUser }> {
-  await delay()
-
-  const users = getStoredUsers()
-  const exists = users.some((u) => u.email.toLowerCase() === payload.email.toLowerCase())
-  if (exists) {
-    return { success: false, error: 'An account with this email already exists.' }
-  }
-
-  const newUser: StoredUser = {
-    id: crypto.randomUUID(),
-    firstName: payload.firstName,
-    lastName: payload.lastName,
-    email: payload.email,
-    company: payload.company,
-    password: payload.password,
-    initials: makeInitials(payload.firstName, payload.lastName),
-  }
-
-  users.push(newUser)
-  saveStoredUsers(users)
-
-  const { password, ...user } = newUser
+function saveSession(user: AuthUser): void {
   localStorage.setItem(SESSION_KEY, JSON.stringify(user))
-
-  return { success: true, user }
-}
-
-export async function apiLogin(payload: LoginPayload): Promise<AuthResult & { user?: AuthUser }> {
-  await delay()
-
-  const users = getStoredUsers()
-  const match = users.find((u) => u.email.toLowerCase() === payload.email.toLowerCase())
-
-  if (!match || match.password !== payload.password) {
-    return { success: false, error: 'Invalid email or password.' }
-  }
-
-  const { password, ...user } = match
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user))
-
-  return { success: true, user }
-}
-
-export async function apiLogout(): Promise<void> {
-  await delay(120)
-  localStorage.removeItem(SESSION_KEY)
 }
 
 export function getSession(): AuthUser | null {
@@ -93,4 +31,64 @@ export function getSession(): AuthUser | null {
   } catch {
     return null
   }
+}
+
+export async function apiLogin(payload: LoginPayload): Promise<AuthResult & { user?: AuthUser }> {
+  try {
+    const form = new URLSearchParams()
+    form.append('username', payload.email)
+    form.append('password', payload.password)
+
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form,
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { success: false, error: err.detail ?? 'Invalid email or password.' }
+    }
+
+    const { access_token } = await res.json()
+    setToken(access_token)
+
+    const me = await apiFetch<BackendUser>('/users/me')
+    const user = mapBackendUser(me)
+    saveSession(user)
+
+    return { success: true, user }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unable to sign in.'
+    return { success: false, error: msg }
+  }
+}
+
+export async function apiSignup(payload: SignupPayload): Promise<AuthResult & { user?: AuthUser }> {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `${payload.firstName} ${payload.lastName}`.trim(),
+        email: payload.email,
+        password: payload.password,
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { success: false, error: err.detail ?? 'Unable to create account.' }
+    }
+
+    return apiLogin({ email: payload.email, password: payload.password })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unable to create account.'
+    return { success: false, error: msg }
+  }
+}
+
+export async function apiLogout(): Promise<void> {
+  clearToken()
+  localStorage.removeItem(SESSION_KEY)
 }

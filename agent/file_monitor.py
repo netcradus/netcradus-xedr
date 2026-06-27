@@ -1,8 +1,19 @@
 import hashlib
+import sys
 import requests
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
+# Watched path differs by OS:
+#   Windows → C:\Users  (all user home directories)
+#   Linux   → /home     (same concept)
+#   macOS   → /Users
+_WATCH_PATHS = {
+    "win32":  "C:\\Users",
+    "darwin": "/Users",
+}
+WATCH_PATH = _WATCH_PATHS.get(sys.platform, "/home")
 
 
 def calculate_hashes(file_path):
@@ -138,15 +149,7 @@ def start_file_monitor(
 
     observer = Observer()
 
-    observer.schedule(
-
-        handler,
-
-        path="C:\\Users",
-
-        recursive=True
-
-    )
+    observer.schedule(handler, path=WATCH_PATH, recursive=True)
 
     observer.start()
 

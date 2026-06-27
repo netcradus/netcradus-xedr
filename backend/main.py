@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.db import SessionLocal
 
@@ -10,6 +11,14 @@ from app.api.telemetry import router as telemetry_router
 from app.api.alerts import router as alerts_router
 from app.api.commands import router as commands_router
 from app.api.iocs import router as iocs_router
+from app.api.incidents import router as incidents_router
+from app.api.settings import router as settings_router
+from app.api.notifications import router as notifications_router
+from app.api.reports import router as reports_router
+from app.api.audit_logs import router as audit_logs_router
+from app.api.threat_feeds import router as threat_feeds_router
+from app.api.ai import router as ai_router
+from app.api.super_admin import router as super_admin_router
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
@@ -21,6 +30,14 @@ import time
 
 app = FastAPI(
     title="SentryXDR"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth_router)
@@ -35,6 +52,14 @@ app.include_router(
 app.include_router(alerts_router)
 app.include_router(commands_router)
 app.include_router(iocs_router)
+app.include_router(incidents_router)
+app.include_router(settings_router)
+app.include_router(notifications_router)
+app.include_router(reports_router)
+app.include_router(audit_logs_router)
+app.include_router(threat_feeds_router)
+app.include_router(ai_router)
+app.include_router(super_admin_router)
 
 @app.on_event("startup")
 def startup():

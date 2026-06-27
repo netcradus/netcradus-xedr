@@ -1,4 +1,4 @@
-export type Severity = 'High' | 'Medium' | 'Low' | 'Informational'
+export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Informational'
 
 export interface StatCardData {
   id: string

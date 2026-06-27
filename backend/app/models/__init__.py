@@ -1,7 +1,11 @@
 from app.models.agent import Agent
+from app.models.audit_log import AuditLog
+from app.models.notification_config import NotificationConfig
 from app.models.alert import Alert
 from app.models.command import Command
 from app.models.file_telemetry import FileTelemetry
+from app.models.incident import Incident
+from app.models.incident_alert import IncidentAlert
 from app.models.ioc import IOC
 from app.models.network_telemetry import NetworkTelemetry
 from app.models.persistence_telemetry import PersistenceTelemetry
@@ -15,11 +19,15 @@ __all__ = [
     "Alert",
     "Command",
     "FileTelemetry",
+    "Incident",
+    "IncidentAlert",
     "IOC",
     "NetworkTelemetry",
     "PersistenceTelemetry",
     "ProcessTelemetry",
     "Role",
     "Tenant",
-    "User"
+    "User",
+    "AuditLog",
+    "NotificationConfig",
 ]

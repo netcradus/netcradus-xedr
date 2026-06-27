@@ -49,13 +49,15 @@ def login(
             detail="Invalid credentials"
         )
 
-    token = create_access_token(
-        {
-            "sub": db_user.email
-        }
-    )
+    token = create_access_token({"sub": db_user.email})
 
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
+    try:
+        from app.services.audit_service import log_event
+        log_event(db, tenant_id=db_user.tenant_id, action="LOGIN",
+                  user_id=db_user.id, user_name=db_user.name,
+                  resource_type="User", resource_id=db_user.id,
+                  details=f"Successful login")
+    except Exception:
+        pass
+
+    return {"access_token": token, "token_type": "bearer"}

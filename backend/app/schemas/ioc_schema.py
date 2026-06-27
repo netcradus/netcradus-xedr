@@ -213,6 +213,10 @@ class IOCResponse(BaseModel):
 
     is_active: bool
 
+    enrichment_status: Optional[str] = None
+
+    vt_score: Optional[int] = None
+
     model_config = {
         "from_attributes": True
     }

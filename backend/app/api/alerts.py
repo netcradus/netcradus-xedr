@@ -147,9 +147,15 @@ def resolve_alert(
         )
 
     alert.status = "Resolved"
-
     db.commit()
 
-    return {
-        "message": "Alert resolved"
-    }
+    try:
+        from app.services.audit_service import log_event
+        log_event(db, tenant_id=current_user.tenant_id, action="RESOLVE_ALERT",
+                  user_id=current_user.id, user_name=current_user.name,
+                  resource_type="Alert", resource_id=alert_id,
+                  details=f"Resolved: {alert.title}")
+    except Exception:
+        pass
+
+    return {"message": "Alert resolved"}

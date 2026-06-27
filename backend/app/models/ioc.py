@@ -4,7 +4,7 @@ from sqlalchemy import (
     DateTime,
     Integer,
     String,
-    Text
+    Text,
 )
 
 from datetime import datetime
@@ -46,3 +46,9 @@ class IOC(Base):
         Boolean,
         default=True
     )
+
+    enrichment_status = Column(String(20), nullable=True, default="pending")
+
+    vt_score = Column(Integer, nullable=True)
+
+    enrichment_data = Column(Text, nullable=True)

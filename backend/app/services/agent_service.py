@@ -24,11 +24,16 @@ def register_agent(
             detail="Invalid agent registration token"
         )
 
-    tenant = db.query(
-        Tenant
-    ).filter(
-        Tenant.name == "Default"
-    ).first()
+    # Resolve tenant: prefer tenant_api_key, fall back to "Default"
+    if agent.tenant_api_key:
+        tenant = db.query(Tenant).filter(
+            Tenant.api_key == agent.tenant_api_key,
+            Tenant.is_active == True,
+        ).first()
+        if not tenant:
+            raise HTTPException(status_code=401, detail="Invalid tenant API key")
+    else:
+        tenant = db.query(Tenant).filter(Tenant.name == "Default").first()
 
     db_agent = Agent(
 
