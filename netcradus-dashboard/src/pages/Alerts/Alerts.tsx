@@ -3,7 +3,7 @@ import { ShieldAlert, Globe, Flag, CheckCircle, RefreshCw, AlertTriangle } from 
 import Topbar from '@/components/layout/Topbar/Topbar'
 import Card from '@/components/ui/Card/Card'
 import Badge from '@/components/ui/Badge/Badge'
-import { fetchAlerts, resolveAlert } from '@/api/alertsApi'
+import { fetchAlerts, resolveAlert, type AlertFilters } from '@/api/alertsApi'
 import { fetchAgents } from '@/api/agentsApi'
 import type { BackendAlert, BackendAgent } from '@/types/api.types'
 import type { Severity } from '@/types/dashboard.types'
@@ -41,7 +41,10 @@ export default function Alerts() {
     setLoading(true)
     setError(null)
     try {
-      const [rawAlerts, agents] = await Promise.all([fetchAlerts(), fetchAgents()])
+      const filters: AlertFilters = {}
+      if (statusFilter !== 'All') filters.status = statusFilter
+      if (severityFilter !== 'All') filters.severity = severityFilter
+      const [rawAlerts, agents] = await Promise.all([fetchAlerts(filters), fetchAgents()])
       const sorted = [...rawAlerts].sort(
         (a, b) =>
           (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99) ||
@@ -54,7 +57,7 @@ export default function Alerts() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [statusFilter, severityFilter])
 
   useEffect(() => { load() }, [load])
 
@@ -72,11 +75,7 @@ export default function Alerts() {
     }
   }
 
-  const filtered = alerts.filter((a) => {
-    if (statusFilter !== 'All' && a.status !== statusFilter) return false
-    if (severityFilter !== 'All' && a.severity !== severityFilter) return false
-    return true
-  })
+  const filtered = alerts  // filtering is now done server-side
 
   const openCount = alerts.filter((a) => a.status === 'Open').length
   const criticalCount = alerts.filter((a) => a.severity === 'Critical' && a.status === 'Open').length

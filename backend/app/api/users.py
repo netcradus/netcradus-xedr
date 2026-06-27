@@ -15,17 +15,17 @@ def get_me(
 ):
 
     return {
-
-    "id": current_user.id,
-
-    "name": current_user.name,
-
-    "email": current_user.email,
-
-    "role": current_user.role.name,
-
-    "tenant": current_user.tenant.name,
-
-    "is_active": current_user.is_active
-
-}
+        "id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "is_active": current_user.is_active,
+        "role": {
+            "id": current_user.role_id,
+            "name": current_user.role.name if current_user.role else "Viewer",
+        },
+        "tenant": {
+            "id": current_user.tenant_id,
+            "name": current_user.tenant.name if current_user.tenant else "",
+            "is_active": current_user.tenant.is_active if current_user.tenant else True,
+        },
+    }

@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta
 from app.models.alert import Alert
+
+ALERT_COOLDOWN_HOURS = 1  # suppress re-creation of same alert within this window
 
 
 def create_alert_if_not_exists(
@@ -9,15 +12,18 @@ def create_alert_if_not_exists(
         mitre_technique,
         agent_id):
 
+    cutoff = datetime.utcnow() - timedelta(hours=ALERT_COOLDOWN_HOURS)
+
     existing = db.query(Alert).filter(
         Alert.title == title,
         Alert.agent_id == agent_id,
-        Alert.status == "Open"
+        Alert.timestamp >= cutoff,
     ).first()
 
     if existing:
-        existing.occurrence_count = (existing.occurrence_count or 0) + 1
-        db.commit()
+        if existing.status == "Open":
+            existing.occurrence_count = (existing.occurrence_count or 0) + 1
+            db.commit()
         return existing
 
     alert = Alert(

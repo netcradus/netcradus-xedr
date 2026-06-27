@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # loads backend/.env before any config is read
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

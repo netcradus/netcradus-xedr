@@ -1,47 +1,46 @@
 """
-Thin wrapper around the Anthropic Messages API.
-Uses requests so no extra dependency is needed beyond what's already installed.
-Set ANTHROPIC_API_KEY in the environment before starting the server.
+Thin wrapper around the Groq API (OpenAI-compatible).
+Uses requests — no extra dependency needed.
+Set GROQ_API_KEY in the environment before starting the server.
 """
 
 import json
 import os
-from typing import Optional
 
 import requests as http_client
 
-_API_URL = "https://api.anthropic.com/v1/messages"
-_API_VERSION = "2023-06-01"
-_MODEL = "claude-haiku-4-5-20251001"  # fast, cheap — good for real-time summaries
+_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+_MODEL = "llama-3.3-70b-versatile"
 
 
 # ── Core call ─────────────────────────────────────────────────────────────────
 
-def _call_claude(system: str, user: str, max_tokens: int = 1024) -> str:
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+def _call_groq(system: str, user: str, max_tokens: int = 1024) -> str:
+    api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         raise ValueError(
-            "ANTHROPIC_API_KEY is not set. "
+            "GROQ_API_KEY is not set. "
             "Add it to your server environment to enable AI features."
         )
 
     r = http_client.post(
         _API_URL,
         headers={
-            "x-api-key": api_key,
-            "anthropic-version": _API_VERSION,
-            "content-type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
         },
         json={
             "model": _MODEL,
             "max_tokens": max_tokens,
-            "system": system,
-            "messages": [{"role": "user", "content": user}],
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
         },
         timeout=30,
     )
     r.raise_for_status()
-    return r.json()["content"][0]["text"]
+    return r.json()["choices"][0]["message"]["content"]
 
 
 # ── Feature 1: Incident summary ───────────────────────────────────────────────
@@ -85,7 +84,7 @@ Correlated Alerts:
 
 Generate the incident summary JSON."""
 
-    text = _call_claude(_SUMMARY_SYSTEM, user, max_tokens=800)
+    text = _call_groq(_SUMMARY_SYSTEM, user, max_tokens=800)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -130,7 +129,7 @@ Output ONLY valid JSON (no markdown fences) matching exactly:
 
 
 def parse_nl_query(query: str) -> dict:
-    text = _call_claude(_NL_QUERY_SYSTEM, f"Parse this query: {query}", max_tokens=300)
+    text = _call_groq(_NL_QUERY_SYSTEM, f"Parse this query: {query}", max_tokens=300)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -173,7 +172,7 @@ Additional context: {context or 'No additional context provided.'}
 
 Generate a response playbook."""
 
-    text = _call_claude(_PLAYBOOK_SYSTEM, user, max_tokens=1400)
+    text = _call_groq(_PLAYBOOK_SYSTEM, user, max_tokens=1400)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
