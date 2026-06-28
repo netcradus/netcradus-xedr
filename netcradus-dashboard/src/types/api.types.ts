@@ -243,6 +243,24 @@ export interface OnboardingInfo {
   tenant_api_key: string | null
 }
 
+export interface TenantUser {
+  id: number
+  name: string
+  email: string
+  role: string
+  is_active: boolean
+}
+
+export interface TenantAgent {
+  id: number
+  hostname: string
+  ip_address: string
+  os_type: string
+  agent_version: string
+  status: string
+  last_seen: string | null
+}
+
 // ── AI types ──────────────────────────────────────────────────────────────────
 
 export interface IncidentAISummary {

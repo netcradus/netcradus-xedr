@@ -4,18 +4,21 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.permissions import superadmin_required
+from app.core.security import hash_password
 from app.database.db import get_db
 from app.models.agent import Agent
 from app.models.alert import Alert
+from app.models.role import Role
 from app.models.tenant import Tenant
 from app.models.user import User
 
 router = APIRouter(prefix="/super-admin", tags=["SuperAdmin"])
 
 PLANS = {"Free", "Pro", "Enterprise"}
+ASSIGNABLE_ROLES = {"Admin", "Analyst", "Viewer"}
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -31,6 +34,13 @@ class UpdateTenantStatusRequest(BaseModel):
 
 class UpdateTenantPlanRequest(BaseModel):
     plan: str
+
+
+class AddUserRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str = "Analyst"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -116,6 +126,117 @@ def update_tenant_plan(
     tenant.plan = request.plan
     db.commit()
     return {"id": tenant.id, "plan": tenant.plan}
+
+
+@router.get("/tenants/{tenant_id}/users")
+def list_tenant_users(
+        tenant_id: int,
+        current_user: User = Depends(superadmin_required),
+        db: Session = Depends(get_db)):
+    if not db.query(Tenant).filter(Tenant.id == tenant_id).first():
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    users = (
+        db.query(User)
+        .options(joinedload(User.role))
+        .filter(User.tenant_id == tenant_id)
+        .all()
+    )
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "role": u.role.name if u.role else "Viewer",
+            "is_active": u.is_active,
+        }
+        for u in users
+    ]
+
+
+@router.post("/tenants/{tenant_id}/users", status_code=201)
+def add_tenant_user(
+        tenant_id: int,
+        request: AddUserRequest,
+        current_user: User = Depends(superadmin_required),
+        db: Session = Depends(get_db)):
+    if not db.query(Tenant).filter(Tenant.id == tenant_id).first():
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    if db.query(User).filter(User.email == request.email).first():
+        raise HTTPException(status_code=409, detail="Email already registered")
+    if request.role not in ASSIGNABLE_ROLES:
+        raise HTTPException(status_code=422, detail=f"Role must be one of: {', '.join(ASSIGNABLE_ROLES)}")
+    role = db.query(Role).filter(Role.name == request.role).first()
+    if not role:
+        raise HTTPException(status_code=422, detail=f"Role '{request.role}' not found in database")
+    user = User(
+        name=request.name.strip(),
+        email=request.email.strip().lower(),
+        password=hash_password(request.password),
+        role_id=role.id,
+        tenant_id=tenant_id,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "name": user.name, "email": user.email, "role": role.name, "is_active": user.is_active}
+
+
+@router.delete("/tenants/{tenant_id}/users/{user_id}", status_code=204)
+def remove_tenant_user(
+        tenant_id: int,
+        user_id: int,
+        current_user: User = Depends(superadmin_required),
+        db: Session = Depends(get_db)):
+    user = (
+        db.query(User)
+        .options(joinedload(User.role))
+        .filter(User.id == user_id, User.tenant_id == tenant_id)
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role and user.role.name == "SuperAdmin":
+        raise HTTPException(status_code=403, detail="Cannot remove a SuperAdmin user")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot remove yourself")
+    db.delete(user)
+    db.commit()
+
+
+@router.get("/tenants/{tenant_id}/agents")
+def list_tenant_agents(
+        tenant_id: int,
+        current_user: User = Depends(superadmin_required),
+        db: Session = Depends(get_db)):
+    if not db.query(Tenant).filter(Tenant.id == tenant_id).first():
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    agents = db.query(Agent).filter(Agent.tenant_id == tenant_id).all()
+    return [
+        {
+            "id": a.id,
+            "hostname": a.hostname,
+            "ip_address": a.ip_address,
+            "os_type": a.os_type,
+            "agent_version": a.agent_version,
+            "status": a.status,
+            "last_seen": a.last_seen.isoformat() if a.last_seen else None,
+        }
+        for a in agents
+    ]
+
+
+@router.delete("/tenants/{tenant_id}/agents/{agent_id}", status_code=204)
+def remove_tenant_agent(
+        tenant_id: int,
+        agent_id: int,
+        current_user: User = Depends(superadmin_required),
+        db: Session = Depends(get_db)):
+    agent = db.query(Agent).filter(Agent.id == agent_id, Agent.tenant_id == tenant_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    db.delete(agent)
+    db.commit()
 
 
 @router.get("/stats")
