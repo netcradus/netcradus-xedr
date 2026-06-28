@@ -1,8 +1,9 @@
 import { useState, type FormEvent, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import AuthLayout from './AuthLayout'
 import { useAuthStore } from '@/store/authStore'
+import { apiMfaVerify } from '@/api/authApi'
 import netcradIcon from '@/assets/images/netcrad-icon.png'
 
 const FEATURES = [
@@ -22,6 +23,13 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  // MFA second step
+  const [mfaStep, setMfaStep] = useState(false)
+  const [mfaSession, setMfaSession] = useState('')
+  const [totpCode, setTotpCode] = useState('')
+  const [mfaLoading, setMfaLoading] = useState(false)
+  const [mfaError, setMfaError] = useState<string | null>(null)
 
   const redirectTo = (location.state as { from?: string; resetSuccess?: boolean })?.from ?? '/'
 
@@ -48,10 +56,96 @@ export default function Login() {
     clearError()
     if (!validate()) return
 
-    const ok = await login({ email, password })
-    if (ok) {
+    const result = await login({ email, password })
+    if (result === true) {
       navigate(redirectTo, { replace: true })
+    } else if (result && typeof result === 'object' && 'mfaRequired' in result) {
+      setMfaSession((result as { mfaSession: string }).mfaSession)
+      setMfaStep(true)
     }
+  }
+
+  async function handleMfaSubmit(e: FormEvent) {
+    e.preventDefault()
+    setMfaLoading(true)
+    setMfaError(null)
+    const result = await apiMfaVerify(mfaSession, totpCode)
+    setMfaLoading(false)
+    if (result.success && result.user) {
+      useAuthStore.setState({ user: result.user, isAuthenticated: true })
+      navigate(redirectTo, { replace: true })
+    } else {
+      setMfaError(result.error ?? 'Invalid code. Try again.')
+      setTotpCode('')
+    }
+  }
+
+  if (mfaStep) {
+    return (
+      <AuthLayout
+        headline={
+          <>
+            Two-factor
+            <br />
+            <span className="text-brand-blue">verification</span>
+          </>
+        }
+        description="Enter the 6-digit code from your authenticator app to complete sign in."
+        features={FEATURES}
+      >
+        <div className="flex flex-col items-center mb-8">
+          <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
+            <ShieldCheck size={28} className="text-brand-blue" />
+          </div>
+          <h2 className="text-[26px] font-bold text-gray-900 mb-1">Authenticator code</h2>
+          <p className="text-sm text-gray-500 text-center">
+            Open your authenticator app and enter the 6-digit code for <strong>SentryXDR</strong>.
+          </p>
+        </div>
+
+        <form onSubmit={handleMfaSubmit} noValidate>
+          <div className="mb-6">
+            <label htmlFor="totp-code" className="block text-[13px] font-medium text-gray-900 mb-1.5">
+              Authentication code
+            </label>
+            <input
+              id="totp-code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              autoFocus
+              className="w-full px-3.5 py-3 text-2xl tracking-[0.5em] font-mono text-center rounded-lg border border-gray-200 outline-none transition-colors focus:border-brand-blue focus:ring-[3px] focus:ring-brand-blue/10"
+            />
+          </div>
+
+          {mfaError && (
+            <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+              {mfaError}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={mfaLoading || totpCode.length < 6}
+            className="w-full py-2.5 rounded-lg bg-brand-blue text-white text-[15px] font-semibold hover:bg-[#2d5cc8] active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {mfaLoading ? 'Verifying…' : 'Verify & Sign In'}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => { setMfaStep(false); setMfaError(null); setTotpCode('') }}
+          className="w-full text-center text-sm text-gray-400 hover:text-gray-600 mt-4"
+        >
+          ← Back to sign in
+        </button>
+      </AuthLayout>
+    )
   }
 
   return (
@@ -175,13 +269,9 @@ export default function Login() {
 
       <p className="text-xs text-gray-400 text-center mt-6 leading-relaxed">
         By signing in, you agree to our{' '}
-        <a href="#" className="text-brand-blue">
-          Terms of Service
-        </a>{' '}
+        <a href="#" className="text-brand-blue">Terms of Service</a>{' '}
         and{' '}
-        <a href="#" className="text-brand-blue">
-          Privacy Policy
-        </a>
+        <a href="#" className="text-brand-blue">Privacy Policy</a>
       </p>
     </AuthLayout>
   )

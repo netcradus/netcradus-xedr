@@ -7,6 +7,7 @@ export interface AuthUser {
   initials: string
   role?: string
   emailVerified?: boolean
+  mfaEnabled?: boolean
 }
 
 export interface LoginPayload {
@@ -26,4 +27,6 @@ export interface SignupPayload {
 export interface AuthResult {
   success: boolean
   error?: string
+  mfaRequired?: boolean
+  mfaSession?: string
 }

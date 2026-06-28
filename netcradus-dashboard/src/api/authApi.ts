@@ -18,6 +18,7 @@ function mapBackendUser(u: BackendUser): AuthUser {
     initials,
     role: u.role?.name ?? 'Viewer',
     emailVerified: u.email_verified ?? false,
+    mfaEnabled: u.mfa_enabled ?? false,
   }
 }
 
@@ -34,7 +35,9 @@ export function getSession(): AuthUser | null {
   }
 }
 
-export async function apiLogin(payload: LoginPayload): Promise<AuthResult & { user?: AuthUser }> {
+export async function apiLogin(
+  payload: LoginPayload
+): Promise<AuthResult & { user?: AuthUser; mfaRequired?: boolean; mfaSession?: string }> {
   try {
     const form = new URLSearchParams()
     form.append('username', payload.email)
@@ -44,6 +47,7 @@ export async function apiLogin(payload: LoginPayload): Promise<AuthResult & { us
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form,
+      credentials: 'include',   // receive httpOnly refresh cookie
     })
 
     if (!res.ok) {
@@ -51,17 +55,46 @@ export async function apiLogin(payload: LoginPayload): Promise<AuthResult & { us
       return { success: false, error: err.detail ?? 'Invalid email or password.' }
     }
 
-    const { access_token } = await res.json()
-    setToken(access_token)
+    const data = await res.json()
 
+    if (data.mfa_required) {
+      return { success: false, mfaRequired: true, mfaSession: data.mfa_session }
+    }
+
+    setToken(data.access_token)
     const me = await apiFetch<BackendUser>('/users/me')
     const user = mapBackendUser(me)
     saveSession(user)
-
     return { success: true, user }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unable to sign in.'
     return { success: false, error: msg }
+  }
+}
+
+export async function apiMfaVerify(
+  mfaSession: string,
+  code: string
+): Promise<AuthResult & { user?: AuthUser }> {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/mfa/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mfa_session: mfaSession, code }),
+      credentials: 'include',
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { success: false, error: err.detail ?? 'Invalid code.' }
+    }
+    const { access_token } = await res.json()
+    setToken(access_token)
+    const me = await apiFetch<BackendUser>('/users/me')
+    const user = mapBackendUser(me)
+    saveSession(user)
+    return { success: true, user }
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : 'Unable to verify.' }
   }
 }
 
@@ -79,6 +112,7 @@ export async function apiSignup(
         password: payload.password,
         plan: payload.plan ?? 'Free',
       }),
+      credentials: 'include',
     })
 
     if (!res.ok) {
@@ -93,7 +127,6 @@ export async function apiSignup(
     const user = mapBackendUser(me)
     saveSession(user)
 
-    // Store API key temporarily for the onboarding page
     if (tenant_api_key) {
       sessionStorage.setItem('netcrad_onboarding_key', tenant_api_key)
     }
@@ -106,6 +139,14 @@ export async function apiSignup(
 }
 
 export async function apiLogout(): Promise<void> {
+  try {
+    await fetch(`${BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch {
+    // ignore errors — clear local state regardless
+  }
   clearToken()
   localStorage.removeItem(SESSION_KEY)
   sessionStorage.removeItem('netcrad_onboarding_key')
@@ -167,4 +208,40 @@ export async function apiResendVerification(email: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   })
+}
+
+// ── MFA ──────────────────────────────────────────────────────────────────────
+
+export interface MFASetupData {
+  secret: string
+  provisioning_uri: string
+  qr_code: string | null
+}
+
+export async function apiMfaSetup(): Promise<MFASetupData> {
+  return apiFetch<MFASetupData>('/auth/mfa/setup')
+}
+
+export async function apiMfaEnable(code: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await apiFetch('/auth/mfa/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    })
+    return { success: true }
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : 'Failed to enable MFA.' }
+  }
+}
+
+export async function apiMfaDisable(code: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await apiFetch('/auth/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    })
+    return { success: true }
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : 'Failed to disable MFA.' }
+  }
 }

@@ -94,7 +94,6 @@ def _lookup_abuseipdb(api_key: str, ip: str):
 # ── Unified lookup ────────────────────────────────────────────────────────────
 
 def lookup_ioc(db: Session, tenant_id: int, ioc_type: str, value: str) -> dict:
-    """Run all configured feeds for the tenant and return combined results."""
     config = db.query(ThreatFeedConfig).filter(
         ThreatFeedConfig.tenant_id == tenant_id
     ).first()
@@ -150,8 +149,13 @@ def _enrich_worker(ioc_id: int, tenant_id: int):
 
 
 def enrich_ioc_background(ioc_id: int, tenant_id: int):
-    threading.Thread(
-        target=_enrich_worker,
-        args=(ioc_id, tenant_id),
-        daemon=True,
-    ).start()
+    """Dispatch to Celery when Redis is available, fall back to a thread."""
+    try:
+        from app.tasks.enrichment import enrich_ioc_task
+        enrich_ioc_task.delay(ioc_id, tenant_id)
+    except Exception:
+        threading.Thread(
+            target=_enrich_worker,
+            args=(ioc_id, tenant_id),
+            daemon=True,
+        ).start()

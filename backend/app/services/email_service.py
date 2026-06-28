@@ -27,7 +27,12 @@ def _send(to: str, subject: str, html: str) -> bool:
 
 
 def _send_async(to: str, subject: str, html: str) -> None:
-    threading.Thread(target=_send, args=(to, subject, html), daemon=True).start()
+    """Dispatch to Celery when Redis is available, fall back to a thread."""
+    try:
+        from app.tasks.notifications import send_email_task
+        send_email_task.delay(to, subject, html)
+    except Exception:
+        threading.Thread(target=_send, args=(to, subject, html), daemon=True).start()
 
 
 def send_verification_email(to: str, token: str) -> None:

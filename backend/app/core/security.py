@@ -1,45 +1,40 @@
+import secrets
 from datetime import datetime, timedelta, timezone
-from jose import jwt
+
+from jose import jwt, JWTError
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
 from fastapi.security import OAuth2PasswordBearer
 
 from app.core.config import settings
 
-# This tells FastAPI that the token should be fetched from the "/auth/login" endpoint
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-# Updated: Using pwdlib explicitly configured with BcryptHasher
 pwd_context = PasswordHash([BcryptHasher()])
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 
 def hash_password(password: str) -> str:
-    """Hashes a plain-text password using Bcrypt."""
     return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies a plain-text password against its stored hash."""
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def create_access_token(data: dict) -> str:
-    """Generates a secure JWT access token."""
     to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire, "type": "access"})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-    # Updated: Replaced deprecated datetime.utcnow() with zone-aware UTC time
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-    )
 
-    to_encode.update({"exp": expire})
-
-    return jwt.encode(
-        to_encode,
-        SECRET_KEY,
-        algorithm=ALGORITHM
-    )
+def decode_token(token: str) -> dict | None:
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        return None

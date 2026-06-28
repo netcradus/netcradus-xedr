@@ -1,12 +1,17 @@
+import io
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import pyotp
+import qrcode
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import jwt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.dependencies import get_current_user
 from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.database.db import get_db
@@ -20,6 +25,8 @@ from app.services.user_service import authenticate_user, create_user
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 VALID_PLANS = {"Free", "Pro", "Enterprise"}
+_REFRESH_COOKIE = "refresh_token"
+_MFA_SESSION_MINUTES = 5
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -41,6 +48,57 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class MFACodeRequest(BaseModel):
+    code: str
+
+
+class MFASessionVerifyRequest(BaseModel):
+    mfa_session: str
+    code: str
+
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
+
+def _set_refresh_cookie(user: User, db: Session, response: Response) -> None:
+    token = secrets.token_hex(64)
+    expires = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    user.refresh_token = token
+    user.refresh_token_expires = expires
+    db.commit()
+    response.set_cookie(
+        key=_REFRESH_COOKIE,
+        value=token,
+        httponly=True,
+        secure=False,     # set True behind HTTPS in production
+        samesite="lax",
+        max_age=settings.refresh_token_expire_days * 86400,
+        path="/auth",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key=_REFRESH_COOKIE, path="/auth")
+
+
+def _create_mfa_session(email: str) -> str:
+    payload = {
+        "sub": email,
+        "type": "mfa_pending",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=_MFA_SESSION_MINUTES),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def _decode_mfa_session(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        if payload.get("type") != "mfa_pending":
+            return None
+        return payload.get("sub")
+    except Exception:
+        return None
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/register", status_code=201)
@@ -48,13 +106,10 @@ class ResetPasswordRequest(BaseModel):
 def register(
     request: Request,
     body: RegisterRequest,
+    response: Response,
     db: Session = Depends(get_db),
 ):
-    """
-    Self-service tenant registration.
-    Creates a new Tenant + Admin user in a single transaction.
-    Returns an access token so the frontend can auto-login.
-    """
+    """Self-service tenant registration. Creates Tenant + Admin user atomically."""
     body.email = body.email.strip().lower()
     body.company = body.company.strip()
 
@@ -83,7 +138,6 @@ def register(
         raise HTTPException(status_code=500, detail="Roles not seeded — run seed.py first")
 
     verification_token = secrets.token_urlsafe(32)
-
     user = User(
         name=body.name.strip(),
         email=body.email,
@@ -112,6 +166,7 @@ def register(
         pass
 
     token = create_access_token({"sub": user.email})
+    _set_refresh_cookie(user, db, response)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -122,11 +177,8 @@ def register(
 
 
 @router.post("/signup")
-def signup(
-    user: UserCreate,
-    db: Session = Depends(get_db),
-):
-    """Legacy signup — assigns user to Default tenant as Viewer. Use /register instead."""
+def signup(user: UserCreate, db: Session = Depends(get_db)):
+    """Legacy signup — assigns user to Default tenant. Use /register instead."""
     db_user = create_user(db, user)
     if db_user is None:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -137,6 +189,7 @@ def signup(
 @limiter.limit("10/minute")
 def login(
     request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
@@ -147,7 +200,9 @@ def login(
     if not db_user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
-    token = create_access_token({"sub": db_user.email})
+    # MFA flow — return a short-lived session token instead of full access token
+    if db_user.mfa_enabled and db_user.totp_secret:
+        return {"mfa_required": True, "mfa_session": _create_mfa_session(db_user.email)}
 
     try:
         from app.services.audit_service import log_event
@@ -158,7 +213,55 @@ def login(
     except Exception:
         pass
 
+    token = create_access_token({"sub": db_user.email})
+    _set_refresh_cookie(db_user, db, response)
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/refresh")
+def refresh_token(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None, alias=_REFRESH_COOKIE),
+    db: Session = Depends(get_db),
+):
+    """Exchange a valid refresh token cookie for a new access token (rotates token)."""
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No refresh token")
+
+    user = db.query(User).filter(User.refresh_token == refresh_token).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+
+    expires = user.refresh_token_expires
+    if expires:
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expires:
+            _clear_refresh_cookie(response)
+            raise HTTPException(status_code=401, detail="Refresh token expired")
+
+    new_access = create_access_token({"sub": user.email})
+    _set_refresh_cookie(user, db, response)   # rotate refresh token
+    return {"access_token": new_access, "token_type": "bearer"}
+
+
+@router.post("/logout")
+def logout(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None, alias=_REFRESH_COOKIE),
+    db: Session = Depends(get_db),
+):
+    if refresh_token:
+        user = db.query(User).filter(User.refresh_token == refresh_token).first()
+        if user:
+            user.refresh_token = None
+            user.refresh_token_expires = None
+            db.commit()
+    _clear_refresh_cookie(response)
+    return {"message": "Logged out"}
 
 
 @router.get("/verify-email")
@@ -166,7 +269,6 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email_verification_token == token).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired verification link")
-
     user.email_verified = True
     user.email_verification_token = None
     db.commit()
@@ -190,7 +292,6 @@ def forgot_password(
             send_password_reset_email(user.email, reset_token)
         except Exception:
             pass
-    # Always return 200 — don't reveal whether the email exists
     return {"message": "If that email is registered, a reset link has been sent."}
 
 
@@ -239,3 +340,111 @@ def resend_verification(
         except Exception:
             pass
     return {"message": "If your email is unverified, a new link has been sent."}
+
+
+# ── MFA Endpoints ─────────────────────────────────────────────────────────────
+
+@router.get("/mfa/setup")
+def mfa_setup(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate TOTP secret and return provisioning URI + QR code (base64 PNG)."""
+    if current_user.mfa_enabled:
+        raise HTTPException(status_code=400, detail="MFA is already enabled")
+
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    uri = totp.provisioning_uri(name=current_user.email, issuer_name="SentryXDR")
+
+    # Save secret (not yet active — user must verify first via /mfa/enable)
+    current_user.totp_secret = secret
+    db.commit()
+
+    qr_data_url: str | None = None
+    try:
+        img = qrcode.make(uri)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        import base64
+        qr_data_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        pass
+
+    return {"secret": secret, "provisioning_uri": uri, "qr_code": qr_data_url}
+
+
+@router.post("/mfa/enable")
+def mfa_enable(
+    body: MFACodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Verify TOTP code to confirm and enable MFA."""
+    if not current_user.totp_secret:
+        raise HTTPException(status_code=400, detail="Call /auth/mfa/setup first")
+    if current_user.mfa_enabled:
+        raise HTTPException(status_code=400, detail="MFA is already enabled")
+
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(body.code, valid_window=1):
+        raise HTTPException(status_code=400, detail="Invalid authenticator code")
+
+    current_user.mfa_enabled = True
+    db.commit()
+    return {"message": "MFA enabled successfully"}
+
+
+@router.post("/mfa/disable")
+def mfa_disable(
+    body: MFACodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Verify TOTP code and disable MFA."""
+    if not current_user.mfa_enabled:
+        raise HTTPException(status_code=400, detail="MFA is not enabled")
+
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(body.code, valid_window=1):
+        raise HTTPException(status_code=400, detail="Invalid authenticator code")
+
+    current_user.mfa_enabled = False
+    current_user.totp_secret = None
+    db.commit()
+    return {"message": "MFA disabled"}
+
+
+@router.post("/mfa/verify")
+@limiter.limit("5/minute")
+def mfa_verify(
+    request: Request,
+    body: MFASessionVerifyRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Complete MFA login: validate session token + TOTP code, issue full tokens."""
+    email = _decode_mfa_session(body.mfa_session)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid or expired MFA session")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.mfa_enabled or not user.totp_secret:
+        raise HTTPException(status_code=401, detail="MFA session invalid")
+
+    totp = pyotp.TOTP(user.totp_secret)
+    if not totp.verify(body.code, valid_window=1):
+        raise HTTPException(status_code=400, detail="Invalid authenticator code")
+
+    try:
+        from app.services.audit_service import log_event
+        log_event(db, tenant_id=user.tenant_id, action="LOGIN",
+                  user_id=user.id, user_name=user.name,
+                  resource_type="User", resource_id=user.id,
+                  details="Successful login with MFA")
+    except Exception:
+        pass
+
+    token = create_access_token({"sub": user.email})
+    _set_refresh_cookie(user, db, response)
+    return {"access_token": token, "token_type": "bearer"}

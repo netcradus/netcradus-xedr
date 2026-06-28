@@ -20,6 +20,7 @@ def get_me(
         "email": current_user.email,
         "is_active": current_user.is_active,
         "email_verified": current_user.email_verified or False,
+        "mfa_enabled": current_user.mfa_enabled or False,
         "role": {
             "id": current_user.role_id,
             "name": current_user.role.name if current_user.role else "Viewer",

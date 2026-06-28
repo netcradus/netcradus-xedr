@@ -16,6 +16,9 @@ import {
   UserCheck,
   Eye,
   EyeOff,
+  Smartphone,
+  Lock,
+  Unlock,
 } from 'lucide-react'
 import Topbar from '@/components/layout/Topbar/Topbar'
 import Card from '@/components/ui/Card/Card'
@@ -29,6 +32,7 @@ import {
   toggleUserStatus,
   changePassword,
 } from '@/api/settingsApi'
+import { apiMfaSetup, apiMfaEnable, apiMfaDisable, type MFASetupData } from '@/api/authApi'
 import type { BackendTeamMember, BackendOrg } from '@/types/api.types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -508,10 +512,211 @@ function TeamTab({ isAdmin, currentUserId }: { isAdmin: boolean; currentUserId: 
   )
 }
 
+// ── MFA Card ──────────────────────────────────────────────────────────────────
+
+type MFAPhase = 'idle' | 'setup' | 'confirm-enable' | 'confirm-disable'
+
+function MFACard({ mfaEnabled, onToggle }: { mfaEnabled: boolean; onToggle: (enabled: boolean) => void }) {
+  const [phase, setPhase] = useState<MFAPhase>('idle')
+  const [setupData, setSetupData] = useState<MFASetupData | null>(null)
+  const [code, setCode] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  function reset() {
+    setPhase('idle')
+    setSetupData(null)
+    setCode('')
+    setError(null)
+  }
+
+  async function startSetup() {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await apiMfaSetup()
+      setSetupData(data)
+      setPhase('setup')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to start MFA setup')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function confirmEnable(e: FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    const result = await apiMfaEnable(code)
+    setLoading(false)
+    if (result.success) {
+      onToggle(true)
+      setSuccess('MFA enabled! Your account is now protected.')
+      reset()
+    } else {
+      setError(result.error ?? 'Invalid code')
+    }
+  }
+
+  async function confirmDisable(e: FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    const result = await apiMfaDisable(code)
+    setLoading(false)
+    if (result.success) {
+      onToggle(false)
+      setSuccess('MFA has been disabled.')
+      reset()
+    } else {
+      setError(result.error ?? 'Invalid code')
+    }
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+          <Smartphone size={20} className="text-indigo-600" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-gray-900">Two-Factor Authentication (MFA)</h3>
+          <p className="text-xs text-gray-400">Use Google Authenticator or any TOTP app</p>
+        </div>
+        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+          mfaEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+        }`}>
+          {mfaEnabled ? 'Enabled' : 'Disabled'}
+        </span>
+      </div>
+
+      {success && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2.5">
+          <CheckCircle2 size={14} /> {success}
+        </div>
+      )}
+
+      {/* Idle state */}
+      {phase === 'idle' && (
+        mfaEnabled ? (
+          <button
+            onClick={() => { setPhase('confirm-disable'); setError(null) }}
+            className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <Unlock size={14} /> Disable MFA
+          </button>
+        ) : (
+          <button
+            onClick={startSetup}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 rounded-lg transition-colors disabled:opacity-60"
+          >
+            {loading ? <RefreshCw size={14} className="animate-spin" /> : <Lock size={14} />}
+            {loading ? 'Loading…' : 'Enable MFA'}
+          </button>
+        )
+      )}
+
+      {/* Setup: show QR code */}
+      {phase === 'setup' && setupData && (
+        <div className="max-w-sm space-y-4">
+          <p className="text-sm text-gray-600">
+            Scan this QR code with <strong>Google Authenticator</strong>, Authy, or any TOTP app.
+          </p>
+          {setupData.qr_code ? (
+            <img src={setupData.qr_code} alt="MFA QR code" className="w-48 h-48 border rounded-lg" />
+          ) : (
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-1">Manual entry key:</p>
+              <p className="font-mono text-sm text-gray-800 break-all">{setupData.secret}</p>
+            </div>
+          )}
+          <button
+            onClick={() => setPhase('confirm-enable')}
+            className="text-sm font-medium text-indigo-600 hover:underline"
+          >
+            I've scanned it — enter my code →
+          </button>
+          <button onClick={reset} className="block text-xs text-gray-400 hover:text-gray-600">
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Confirm enable */}
+      {phase === 'confirm-enable' && (
+        <form onSubmit={confirmEnable} className="max-w-xs space-y-4">
+          <p className="text-sm text-gray-600">Enter the 6-digit code from your authenticator app to confirm.</p>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            placeholder="000000"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            className="w-full text-xl tracking-[0.4em] font-mono text-center border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              <AlertTriangle size={13} /> {error}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button type="button" onClick={reset}
+              className="flex-1 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg py-2 transition-colors">
+              Back
+            </button>
+            <button type="submit" disabled={loading || code.length < 6}
+              className="flex-1 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg py-2 transition-colors disabled:opacity-60">
+              {loading ? 'Verifying…' : 'Activate MFA'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Confirm disable */}
+      {phase === 'confirm-disable' && (
+        <form onSubmit={confirmDisable} className="max-w-xs space-y-4">
+          <p className="text-sm text-gray-600">Enter your current authenticator code to disable MFA.</p>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            placeholder="000000"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            className="w-full text-xl tracking-[0.4em] font-mono text-center border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              <AlertTriangle size={13} /> {error}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button type="button" onClick={reset}
+              className="flex-1 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg py-2 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading || code.length < 6}
+              className="flex-1 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg py-2 transition-colors disabled:opacity-60">
+              {loading ? 'Disabling…' : 'Disable MFA'}
+            </button>
+          </div>
+        </form>
+      )}
+    </Card>
+  )
+}
+
 // ── Account Tab ───────────────────────────────────────────────────────────────
 
 function AccountTab() {
   const user = useAuthStore((s) => s.user)
+  const [mfaEnabled, setMfaEnabled] = useState(user?.mfaEnabled ?? false)
   const [currentPwd, setCurrentPwd] = useState('')
   const [newPwd, setNewPwd] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
@@ -623,6 +828,9 @@ function AccountTab() {
           </button>
         </form>
       </Card>
+
+      {/* MFA */}
+      <MFACard mfaEnabled={mfaEnabled} onToggle={setMfaEnabled} />
     </div>
   )
 }
