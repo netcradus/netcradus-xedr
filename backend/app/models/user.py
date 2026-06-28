@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database.db import Base
-from sqlalchemy.orm import relationship
 
 
 class User(Base):
@@ -31,3 +30,8 @@ class User(Base):
     )
 
     tenant = relationship("Tenant")
+
+    email_verified = Column(Boolean, default=False)
+    email_verification_token = Column(String, unique=True, nullable=True)
+    password_reset_token = Column(String, unique=True, nullable=True)
+    password_reset_expires = Column(DateTime, nullable=True)

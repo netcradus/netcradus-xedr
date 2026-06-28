@@ -30,5 +30,15 @@ class Settings:
         ""
     )
 
+    # SMTP for system emails (verification, password reset)
+    smtp_host = os.getenv("SMTP_HOST", "")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+    smtp_from = os.getenv("SMTP_FROM", "noreply@sentryxdr.com")
+
+    # Frontend URL (used in email links)
+    app_url = os.getenv("APP_URL", "http://localhost:5173")
+
 
 settings = Settings()

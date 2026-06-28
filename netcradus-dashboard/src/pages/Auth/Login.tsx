@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import AuthLayout from './AuthLayout'
@@ -21,8 +21,15 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  const redirectTo = (location.state as { from?: string })?.from ?? '/'
+  const redirectTo = (location.state as { from?: string; resetSuccess?: boolean })?.from ?? '/'
+
+  useEffect(() => {
+    if ((location.state as { resetSuccess?: boolean })?.resetSuccess) {
+      setSuccessMsg('Password reset successfully. Sign in with your new password.')
+    }
+  }, [location.state])
 
   function validate() {
     const errors: { email?: string; password?: string } = {}
@@ -93,9 +100,9 @@ export default function Login() {
             <label htmlFor="login-password" className="block text-[13px] font-medium text-gray-900">
               Password
             </label>
-            <a href="#" className="text-xs text-brand-blue font-medium hover:underline">
+            <Link to="/forgot-password" className="text-xs text-brand-blue font-medium hover:underline">
               Forgot password?
-            </a>
+            </Link>
           </div>
           <div className="relative">
             <input
@@ -120,6 +127,12 @@ export default function Login() {
           </div>
           {fieldErrors.password && <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>}
         </div>
+
+        {successMsg && (
+          <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700">
+            {successMsg}
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">

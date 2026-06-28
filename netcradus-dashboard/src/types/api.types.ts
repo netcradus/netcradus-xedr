@@ -32,6 +32,7 @@ export interface BackendUser {
   name: string
   email: string
   is_active: boolean
+  email_verified: boolean
   role: { id: number; name: string }
   tenant: { id: number; name: string; is_active: boolean }
 }

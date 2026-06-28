@@ -6,6 +6,7 @@ export interface AuthUser {
   company: string
   initials: string
   role?: string
+  emailVerified?: boolean
 }
 
 export interface LoginPayload {
@@ -19,6 +20,7 @@ export interface SignupPayload {
   email: string
   company: string
   password: string
+  plan?: string
 }
 
 export interface AuthResult {

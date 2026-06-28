@@ -40,6 +40,7 @@ export default function Signup() {
   const [email, setEmail] = useState('')
   const [company, setCompany] = useState('')
   const [password, setPassword] = useState('')
+  const [plan, setPlan] = useState('Free')
   const [showPassword, setShowPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
@@ -61,9 +62,9 @@ export default function Signup() {
     clearError()
     if (!validate()) return
 
-    const ok = await signup({ firstName, lastName, email, company, password })
+    const ok = await signup({ firstName, lastName, email, company, password, plan })
     if (ok) {
-      navigate('/', { replace: true })
+      navigate('/onboarding', { replace: true })
     }
   }
 
@@ -159,6 +160,27 @@ export default function Signup() {
             }`}
           />
           {fieldErrors.company && <p className="text-xs text-red-600 mt-1">{fieldErrors.company}</p>}
+        </div>
+
+        <div className="mb-[18px]">
+          <label className="block text-[13px] font-medium text-gray-900 mb-1.5">Plan</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(['Free', 'Pro', 'Enterprise'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPlan(p)}
+                className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  plan === p
+                    ? 'bg-brand-blue text-white border-brand-blue'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-blue/40'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          {plan === 'Free' && <p className="text-[11px] text-gray-400 mt-1">14-day trial of Pro features included</p>}
         </div>
 
         <div className="mb-[18px]">
