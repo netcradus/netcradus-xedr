@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import Card from '@/components/ui/Card/Card'
 import CardMenu from '@/components/ui/CardMenu/CardMenu'
 import type { ThreatItem } from '@/types/dashboard.types'
@@ -62,9 +63,9 @@ export default function ThreatLandscapeMap({
         </div>
       </div>
 
-      <a href="#" className="inline-block mt-4 text-sm text-brand-blue hover:underline">
+      <Link to="/threat-intelligence" className="inline-block mt-4 text-sm text-brand-blue hover:underline">
         View full threat landscape →
-      </a>
+      </Link>
     </Card>
   )
 }

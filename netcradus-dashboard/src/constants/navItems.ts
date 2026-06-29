@@ -30,5 +30,5 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'integrations', label: 'Integrations', path: '/integrations', icon: 'integrations' },
   { id: 'settings', label: 'Settings', path: '/settings', icon: 'settings' },
   { id: 'audit-logs', label: 'Audit Logs', path: '/audit-logs', icon: 'auditLogs' },
-  { id: 'super-admin', label: 'Platform Admin', path: '/super-admin', icon: 'superAdmin' },
+  { id: 'super-admin', label: 'Super Admin', path: '/super-admin', icon: 'superAdmin' },
 ]

@@ -140,9 +140,12 @@ export default function Sidebar() {
             <Headphones size={20} className="mb-2 text-white/70" />
             <p className="text-sm font-medium">Need Help?</p>
             <p className="text-[11px] text-white/50 mb-3">Our security experts are available 24/7</p>
-            <button className="w-full text-xs bg-white/10 hover:bg-sidebar-hover rounded-lg py-2 transition-colors duration-200">
+            <a
+              href="mailto:support@netcradus.com"
+              className="block w-full text-center text-xs bg-white/10 hover:bg-sidebar-hover rounded-lg py-2 transition-colors duration-200"
+            >
               Contact Support
-            </button>
+            </a>
           </div>
         </nav>
 

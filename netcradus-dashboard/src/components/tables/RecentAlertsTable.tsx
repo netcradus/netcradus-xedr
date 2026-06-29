@@ -1,4 +1,5 @@
 
+import { Link } from 'react-router-dom'
 import { ShieldAlert, Grid3x3, Globe, Flag } from 'lucide-react'
 import Card from '@/components/ui/Card/Card'
 import Badge from '@/components/ui/Badge/Badge'
@@ -63,9 +64,9 @@ export default function RecentAlertsTable({ alerts }: { alerts: RecentAlert[] })
         </table>
       </div>
 
-      <a href="#" className="inline-block mt-4 text-sm text-brand-blue hover:underline">
+      <Link to="/alerts" className="inline-block mt-4 text-sm text-brand-blue hover:underline">
         View all alerts →
-      </a>
+      </Link>
     </Card>
   )
 }

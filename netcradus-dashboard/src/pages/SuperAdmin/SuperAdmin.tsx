@@ -385,7 +385,7 @@ export default function SuperAdmin() {
 
   return (
     <div className="pb-8">
-      <Topbar title="Platform Admin" subtitle="SuperAdmin console · all tenants" onRefresh={load} />
+      <Topbar title="Super Admin" subtitle="Tenant management console · all organisations" onRefresh={load} />
 
       <div className="px-4 sm:px-6 lg:px-8 space-y-6">
 
