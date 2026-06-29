@@ -202,22 +202,29 @@ SYSTEM_RULES = [
 
 
 def seed_detection_rules(db: Session) -> None:
-    """Insert system rules that don't already exist (by name + is_system)."""
-    existing_names = {
-        r.name
-        for r in db.query(DetectionRule.name).filter(DetectionRule.is_system.is_(True)).all()
-    }
-    now = datetime.utcnow()
-    for rule_data in SYSTEM_RULES:
-        if rule_data["name"] in existing_names:
-            continue
-        rule = DetectionRule(
-            **rule_data,
-            enabled=True,
-            tenant_id=None,
-            is_system=True,
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(rule)
-    db.commit()
+    """Insert system rules that don't already exist (by name + is_system).
+
+    Silently skips if the detection_rules table hasn't been created yet
+    (migration not yet applied).
+    """
+    try:
+        existing_names = {
+            r.name
+            for r in db.query(DetectionRule.name).filter(DetectionRule.is_system.is_(True)).all()
+        }
+        now = datetime.utcnow()
+        for rule_data in SYSTEM_RULES:
+            if rule_data["name"] in existing_names:
+                continue
+            rule = DetectionRule(
+                **rule_data,
+                enabled=True,
+                tenant_id=None,
+                is_system=True,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(rule)
+        db.commit()
+    except Exception:
+        db.rollback()
