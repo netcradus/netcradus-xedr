@@ -66,7 +66,14 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
       })
       if (!retry.ok) {
         const err = await retry.json().catch(() => ({ detail: retry.statusText }))
-        throw new Error(err.detail ?? 'Request failed')
+        const detail = err.detail
+        const message =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+            ? detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join('; ')
+            : retry.statusText || 'Request failed'
+        throw new Error(message)
       }
       return retry.json() as Promise<T>
     }
@@ -78,7 +85,14 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail ?? 'Request failed')
+    const detail = err.detail
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+        ? detail.map((d: { msg?: string; loc?: string[] }) => d.msg ?? JSON.stringify(d)).join('; ')
+        : res.statusText || 'Request failed'
+    throw new Error(message)
   }
   return res.json() as Promise<T>
 }
