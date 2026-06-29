@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react'
 import { NAV_ITEMS, type NavItem } from '@/constants/navItems'
 import { useAuthStore } from '@/store/authStore'
@@ -41,6 +42,7 @@ const ICONS: Record<NavItem['icon'], React.ElementType> = {
   settings: Settings,
   auditLogs: ScrollText,
   superAdmin: Building2,
+  detectionRules: ShieldAlert,
 }
 
 // ── Support ticket modal ──────────────────────────────────────────────────────

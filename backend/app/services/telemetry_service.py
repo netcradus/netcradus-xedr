@@ -65,6 +65,13 @@ from app.services.ioc_service import (
     match_text_iocs
 )
 
+from app.services.rule_engine import (
+    evaluate_process_rules,
+    evaluate_network_rules,
+    evaluate_file_rules,
+    evaluate_persistence_rules,
+)
+
 
 def save_processes(
         db: Session,
@@ -216,6 +223,8 @@ def save_processes(
 
         )
 
+        evaluate_process_rules(db, process, agent.id, agent.tenant_id)
+
 
     db.commit()
 
@@ -270,6 +279,8 @@ def save_connections(
             conn.remote_port,
             agent.id
         )
+
+        evaluate_network_rules(db, conn, agent.id, agent.tenant_id)
 
     db.commit()
 
@@ -344,7 +355,8 @@ def save_file_events(
             agent.id
 
         )
-        
+
+        evaluate_file_rules(db, event, agent.id, agent.tenant_id)
 
     db.commit()
 
@@ -441,6 +453,8 @@ def save_persistence(
             agent.id
 
         )
+
+        evaluate_persistence_rules(db, entry, agent.id, agent.tenant_id)
 
     db.commit()
 

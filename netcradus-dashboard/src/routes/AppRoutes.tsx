@@ -19,6 +19,7 @@ import Settings from '@/pages/Settings/Settings'
 import AuditLogs from '@/pages/AuditLogs/AuditLogs'
 import AIQuery from '@/pages/AIQuery/AIQuery'
 import SuperAdmin from '@/pages/SuperAdmin/SuperAdmin'
+import DetectionRules from '@/pages/DetectionRules/DetectionRules'
 import PlatformAdmin from '@/pages/PlatformAdmin/PlatformAdmin'
 import { useAuthStore } from '@/store/authStore'
 
@@ -62,6 +63,7 @@ export default function AppRoutes() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/alerts" element={<Alerts />} />
+                <Route path="/detection-rules" element={<DetectionRules />} />
                 <Route path="/incidents" element={<Incidents />} />
                 <Route path="/assets" element={<Assets />} />
                 <Route path="/threat-intelligence" element={<ThreatIntelligence />} />

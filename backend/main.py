@@ -29,11 +29,13 @@ from app.api.super_admin import router as super_admin_router
 from app.api.platform_admin import router as platform_admin_router
 from app.api.health import router as health_router
 from app.api.support import router as support_router
+from app.api.detection_rules import router as detection_rules_router
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
 from app.services.agent_service import update_offline_agents
 from app.services.platform_admin_service import seed_platform_admin
+from app.services.detection_rule_seed import seed_detection_rules
 import threading
 import time
 
@@ -71,6 +73,7 @@ app.include_router(ai_router)
 app.include_router(super_admin_router)
 app.include_router(platform_admin_router)
 app.include_router(support_router)
+app.include_router(detection_rules_router)
 
 
 @app.on_event("startup")
@@ -79,6 +82,7 @@ def startup():
     seed_roles(db)
     create_default_tenant(db)
     seed_platform_admin(db)
+    seed_detection_rules(db)
     db.close()
 
     threading.Thread(target=_offline_monitor, daemon=True).start()
