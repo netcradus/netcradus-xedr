@@ -19,6 +19,7 @@ import Settings from '@/pages/Settings/Settings'
 import AuditLogs from '@/pages/AuditLogs/AuditLogs'
 import AIQuery from '@/pages/AIQuery/AIQuery'
 import SuperAdmin from '@/pages/SuperAdmin/SuperAdmin'
+import PlatformAdmin from '@/pages/PlatformAdmin/PlatformAdmin'
 import { useAuthStore } from '@/store/authStore'
 
 function AuthRedirect({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,9 @@ export default function AppRoutes() {
 
       {/* Onboarding — protected, no sidebar layout */}
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+
+      {/* Platform Admin — SuperAdmin only, own full-page layout */}
+      <Route path="/platform-admin" element={<ProtectedRoute><PlatformAdmin /></ProtectedRoute>} />
 
       {/* Protected dashboard routes */}
       <Route

@@ -26,6 +26,7 @@ from app.api.audit_logs import router as audit_logs_router
 from app.api.threat_feeds import router as threat_feeds_router
 from app.api.ai import router as ai_router
 from app.api.super_admin import router as super_admin_router
+from app.api.platform_admin import router as platform_admin_router
 from app.api.health import router as health_router
 
 from app.services.role_service import seed_roles
@@ -66,6 +67,7 @@ app.include_router(audit_logs_router)
 app.include_router(threat_feeds_router)
 app.include_router(ai_router)
 app.include_router(super_admin_router)
+app.include_router(platform_admin_router)
 
 
 @app.on_event("startup")
