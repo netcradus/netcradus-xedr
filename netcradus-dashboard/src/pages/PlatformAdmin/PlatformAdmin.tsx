@@ -1,12 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell, CartesianGrid,
 } from 'recharts'
 import {
-  LayoutDashboard, Building2, Activity, Server,
+  LayoutDashboard, Building2, Activity, Server, DollarSign,
   RefreshCw, Users, Monitor, Bell, AlertTriangle, CheckCircle2,
   XCircle, Wifi, WifiOff, Clock, ShieldCheck, Search, LogOut,
+  TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown,
+  Zap, Globe, Database,
 } from 'lucide-react'
 import {
   fetchPlatformOverview, fetchPlatformTenants, fetchPlatformActivity, fetchPlatformSystem,
@@ -16,7 +19,9 @@ import { useAuthStore } from '@/store/authStore'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'tenants' | 'activity' | 'system'
+type Tab = 'overview' | 'revenue' | 'tenants' | 'activity' | 'system'
+type SortKey = keyof PlatformTenant
+type SortDir = 'asc' | 'desc'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,47 +43,51 @@ function fmtUptime(seconds: number): string {
   return `${m}m ${seconds % 60}s`
 }
 
+function fmtMRR(n: number): string {
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`
+  return `$${n}`
+}
+
 const PLAN_STYLE: Record<string, string> = {
   Free:       'bg-gray-100 text-gray-600',
   Pro:        'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
   Enterprise: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200',
 }
 
-const ACTION_COLOR: Record<string, string> = {
-  LOGIN:    'bg-blue-500',
-  REGISTER: 'bg-green-500',
-  LOGOUT:   'bg-gray-400',
-  DELETE:   'bg-red-500',
-  UPDATE:   'bg-amber-500',
-  CREATE:   'bg-emerald-500',
+const PLAN_COLOR: Record<string, string> = {
+  Free: '#6b7280',
+  Pro: '#3b82f6',
+  Enterprise: '#8b5cf6',
 }
 
-// ── KPI Card ──────────────────────────────────────────────────────────────────
+const ACTION_STYLE: Record<string, string> = {
+  LOGIN:    'bg-blue-100 text-blue-700',
+  REGISTER: 'bg-green-100 text-green-700',
+  LOGOUT:   'bg-gray-100 text-gray-600',
+  DELETE:   'bg-red-100 text-red-700',
+  UPDATE:   'bg-amber-100 text-amber-700',
+  CREATE:   'bg-emerald-100 text-emerald-700',
+  EXPORT:   'bg-indigo-100 text-indigo-700',
+}
 
-function KPICard({
-  label, value, sub, icon: Icon, color,
-}: {
-  label: string
-  value: number | string
-  sub?: string
-  icon: React.ElementType
-  color: string
-}) {
+// ── Shared Components ─────────────────────────────────────────────────────────
+
+function Spinner() {
   return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">{label}</span>
-        <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon size={18} className="text-white" />
-        </div>
-      </div>
-      <p className="text-3xl font-bold text-gray-900">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    <div className="flex items-center justify-center py-20 gap-2 text-gray-400">
+      <RefreshCw size={16} className="animate-spin" />
+      <span className="text-sm">Loading…</span>
     </div>
   )
 }
 
-// ── Status Pill ───────────────────────────────────────────────────────────────
+function ErrorMsg({ msg }: { msg: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3 border border-red-200">
+      <AlertTriangle size={14} /> {msg}
+    </div>
+  )
+}
 
 function StatusPill({ value }: { value: string }) {
   const ok = value === 'ok'
@@ -93,71 +102,232 @@ function StatusPill({ value }: { value: string }) {
   )
 }
 
+function PlanBadge({ plan }: { plan: string }) {
+  return (
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${PLAN_STYLE[plan] ?? 'bg-gray-100 text-gray-600'}`}>
+      {plan}
+    </span>
+  )
+}
+
+function TenantAvatar({ name }: { name: string }) {
+  return (
+    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-xs font-bold text-slate-700 shrink-0">
+      {name.slice(0, 2).toUpperCase()}
+    </div>
+  )
+}
+
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+
+function KPICard({
+  label, value, sub, icon: Icon, color, trend,
+}: {
+  label: string
+  value: number | string
+  sub?: string
+  icon: React.ElementType
+  color: string
+  trend?: { pct: number; label: string }
+}) {
+  return (
+    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</span>
+        <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${color}`}>
+          <Icon size={17} className="text-white" />
+        </div>
+      </div>
+      <div>
+        <p className="text-3xl font-bold text-gray-900 leading-none">{value}</p>
+        {sub && <p className="text-xs text-gray-400 mt-1.5">{sub}</p>}
+      </div>
+      {trend && (
+        <div className={`flex items-center gap-1 text-xs font-medium ${
+          trend.pct > 0 ? 'text-green-600' : trend.pct < 0 ? 'text-red-500' : 'text-gray-400'
+        }`}>
+          {trend.pct > 0 ? <TrendingUp size={12} /> : trend.pct < 0 ? <TrendingDown size={12} /> : <Minus size={12} />}
+          {trend.pct > 0 ? '+' : ''}{trend.pct}% {trend.label}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab() {
   const [data, setData] = useState<PlatformOverview | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
-    fetchPlatformOverview().then(setData).finally(() => setLoading(false))
+    fetchPlatformOverview()
+      .then(setData)
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <Spinner />
+  if (error || !data) return <ErrorMsg msg="Failed to load overview data." />
 
-  if (!data) return <ErrorMsg msg="Failed to load overview data." />
-
-  const planColors: Record<string, string> = { Free: '#6b7280', Pro: '#3b82f6', Enterprise: '#8b5cf6' }
   const totalByPlan = Object.values(data.plan_distribution).reduce((a, b) => a + b, 0)
+  const agentOnlinePct = data.total_agents > 0 ? Math.round(data.online_agents / data.total_agents * 100) : 0
 
   return (
     <div className="space-y-6">
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <KPICard label="Total Tenants"  value={data.total_tenants}  sub={`${data.active_tenants} active`}      icon={Building2}     color="bg-slate-600" />
-        <KPICard label="Users"          value={data.total_users}    sub="across all tenants"                    icon={Users}         color="bg-blue-500" />
-        <KPICard label="Agents"         value={data.total_agents}   sub={`${data.online_agents} online`}        icon={Monitor}       color="bg-teal-500" />
-        <KPICard label="Alerts Today"   value={data.alerts_today}   sub="all tenants"                           icon={Bell}          color="bg-amber-500" />
-        <KPICard label="Critical Today" value={data.critical_today} sub="needs attention"                       icon={AlertTriangle} color="bg-red-500" />
-        <KPICard label="Active Rate"    value={`${data.total_tenants ? Math.round(data.active_tenants / data.total_tenants * 100) : 0}%`} sub="tenants active" icon={ShieldCheck} color="bg-green-500" />
+      {/* KPI grid — row 1 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <KPICard
+          label="Total Tenants" value={data.total_tenants}
+          sub={`${data.active_tenants} active · ${data.inactive_tenants} inactive`}
+          icon={Building2} color="bg-slate-600"
+          trend={{ pct: data.growth_pct, label: 'vs last month' }}
+        />
+        <KPICard
+          label="Users" value={data.total_users}
+          sub="across all tenants"
+          icon={Users} color="bg-blue-500"
+        />
+        <KPICard
+          label="Agents" value={data.total_agents}
+          sub={`${data.online_agents} online (${agentOnlinePct}%)`}
+          icon={Monitor} color="bg-teal-500"
+        />
+        <KPICard
+          label="MRR Estimate" value={fmtMRR(data.mrr_estimate)}
+          sub="based on paid plans"
+          icon={DollarSign} color="bg-emerald-600"
+          trend={{ pct: data.growth_pct, label: 'growth' }}
+        />
       </div>
 
-      {/* Charts row */}
+      {/* KPI grid — row 2 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <KPICard
+          label="New This Month" value={data.new_this_month}
+          sub={`${data.new_last_month} last month`}
+          icon={TrendingUp} color="bg-indigo-500"
+        />
+        <KPICard
+          label="Alerts Today" value={data.alerts_today}
+          sub="across all tenants"
+          icon={Bell} color="bg-amber-500"
+        />
+        <KPICard
+          label="Critical Today" value={data.critical_today}
+          sub="needs attention"
+          icon={AlertTriangle} color="bg-red-500"
+        />
+        <KPICard
+          label="Total Alerts" value={data.total_alerts}
+          sub="all time"
+          icon={Zap} color="bg-orange-500"
+        />
+      </div>
+
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Signup trend */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">New Tenants — Last 14 Days</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">New Tenant Signups — 14 Days</h3>
+          <p className="text-xs text-gray-400 mb-4">Daily tenant registrations across the platform</p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={data.signup_trend} barSize={14}>
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+            <AreaChart data={data.signup_trend}>
+              <defs>
+                <linearGradient id="signupGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} interval={2} />
               <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={24} />
-              <Tooltip
-                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
-                cursor={{ fill: '#f1f5f9' }}
-              />
-              <Bar dataKey="count" name="Signups" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }} />
+              <Area type="monotone" dataKey="count" name="Signups" stroke="#3b82f6" strokeWidth={2} fill="url(#signupGrad)" dot={false} activeDot={{ r: 4 }} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Alert trend */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Platform Alerts — Last 7 Days</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Platform Alerts — 14 Days</h3>
+          <p className="text-xs text-gray-400 mb-4">Total alerts generated across all tenants</p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={data.alert_trend} barSize={24}>
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+            <AreaChart data={data.alert_trend}>
+              <defs>
+                <linearGradient id="alertGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} interval={2} />
               <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={24} />
-              <Tooltip
-                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
-                cursor={{ fill: '#f1f5f9' }}
-              />
-              <Bar dataKey="count" name="Alerts" radius={[4, 4, 0, 0]}>
-                {data.alert_trend.map((_, i) => (
-                  <Cell key={i} fill={_ .count > 10 ? '#ef4444' : '#f97316'} />
-                ))}
-              </Bar>
-            </BarChart>
+              <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }} />
+              <Area type="monotone" dataKey="count" name="Alerts" stroke="#f97316" strokeWidth={2} fill="url(#alertGrad)" dot={false} activeDot={{ r: 4 }} />
+            </AreaChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Bottom row — Recent signups + Top tenants */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Recent signups */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Recent Signups</h3>
+          <div className="space-y-3">
+            {data.recent_signups.length === 0 ? (
+              <p className="text-xs text-gray-400">No signups yet.</p>
+            ) : data.recent_signups.map((t) => (
+              <div key={t.id} className="flex items-center gap-3">
+                <TenantAvatar name={t.name} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                  <p className="text-[11px] text-gray-400">{timeAgo(t.created_at)}</p>
+                </div>
+                <PlanBadge plan={t.plan} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top by alerts */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Most Active by Alerts</h3>
+          <div className="space-y-3">
+            {data.top_tenants_by_alerts.map((t, i) => (
+              <div key={t.id} className="flex items-center gap-3">
+                <span className="text-xs font-bold text-gray-300 w-4 text-right shrink-0">{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                  <p className="text-[11px] text-gray-400">{t.alert_count} alerts</p>
+                </div>
+                <PlanBadge plan={t.plan} />
+              </div>
+            ))}
+            {data.top_tenants_by_alerts.length === 0 && (
+              <p className="text-xs text-gray-400">No alert data.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Top by users */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Largest Tenants by Users</h3>
+          <div className="space-y-3">
+            {data.top_tenants_by_users.map((t, i) => (
+              <div key={t.id} className="flex items-center gap-3">
+                <span className="text-xs font-bold text-gray-300 w-4 text-right shrink-0">{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                  <p className="text-[11px] text-gray-400">{t.user_count} users</p>
+                </div>
+                <PlanBadge plan={t.plan} />
+              </div>
+            ))}
+            {data.top_tenants_by_users.length === 0 && (
+              <p className="text-xs text-gray-400">No user data.</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -169,19 +339,171 @@ function OverviewTab() {
             const count = data.plan_distribution[plan] ?? 0
             const pct = totalByPlan > 0 ? Math.round(count / totalByPlan * 100) : 0
             return (
-              <div key={plan} className="text-center p-4 rounded-xl bg-gray-50 border border-gray-100">
-                <p className="text-3xl font-bold text-gray-900 mb-1">{count}</p>
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${PLAN_STYLE[plan]}`}>{plan}</span>
-                <div className="mt-3 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${pct}%`, backgroundColor: planColors[plan] }}
-                  />
+              <div key={plan} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${PLAN_STYLE[plan]}`}>{plan}</span>
+                  <p className="text-2xl font-bold text-gray-900">{count}</p>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">{pct}% of tenants</p>
+                <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: PLAN_COLOR[plan] }} />
+                </div>
+                <p className="text-xs text-gray-400">{pct}% of tenants</p>
               </div>
             )
           })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Revenue Tab ───────────────────────────────────────────────────────────────
+
+function RevenueTab() {
+  const [data, setData] = useState<PlatformOverview | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    fetchPlatformOverview()
+      .then(setData)
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <Spinner />
+  if (error || !data) return <ErrorMsg msg="Failed to load revenue data." />
+
+  const planPrices: Record<string, number> = { Free: 0, Pro: 49, Enterprise: 199 }
+  const plans = ['Free', 'Pro', 'Enterprise']
+  const revenueByPlan = plans.map((p) => ({
+    plan: p,
+    tenants: data.plan_distribution[p] ?? 0,
+    mrr: (data.plan_distribution[p] ?? 0) * (planPrices[p] ?? 0),
+  }))
+  const maxMRR = Math.max(...revenueByPlan.map((r) => r.mrr), 1)
+
+  // ARR = MRR × 12
+  const arr = data.mrr_estimate * 12
+  const paidTenants = (data.plan_distribution['Pro'] ?? 0) + (data.plan_distribution['Enterprise'] ?? 0)
+  const freeTenants = data.plan_distribution['Free'] ?? 0
+  const conversionRate = data.total_tenants > 0 ? Math.round(paidTenants / data.total_tenants * 100) : 0
+
+  return (
+    <div className="space-y-6">
+      {/* Revenue KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <KPICard
+          label="MRR Estimate" value={fmtMRR(data.mrr_estimate)}
+          sub="monthly recurring revenue"
+          icon={DollarSign} color="bg-emerald-600"
+          trend={{ pct: data.growth_pct, label: 'vs last month' }}
+        />
+        <KPICard
+          label="ARR Estimate" value={fmtMRR(arr)}
+          sub="annualized run rate"
+          icon={TrendingUp} color="bg-blue-600"
+        />
+        <KPICard
+          label="Paid Tenants" value={paidTenants}
+          sub={`${freeTenants} on free plan`}
+          icon={Building2} color="bg-indigo-500"
+        />
+        <KPICard
+          label="Conversion Rate" value={`${conversionRate}%`}
+          sub="free → paid"
+          icon={Zap} color="bg-amber-500"
+        />
+      </div>
+
+      {/* Revenue breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Revenue by Plan</h3>
+          <p className="text-xs text-gray-400 mb-4">Pro $49/mo · Enterprise $199/mo · Free $0</p>
+          <div className="space-y-4">
+            {revenueByPlan.map(({ plan, tenants, mrr }) => (
+              <div key={plan}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <PlanBadge plan={plan} />
+                    <span className="text-xs text-gray-500">{tenants} tenants</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">{fmtMRR(mrr)}/mo</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${maxMRR > 0 ? (mrr / maxMRR) * 100 : 0}%`, backgroundColor: PLAN_COLOR[plan] }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Plan Mix — Tenant Count</h3>
+          <p className="text-xs text-gray-400 mb-4">Distribution of tenants across plans</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={revenueByPlan} barSize={40}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="plan" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={24} />
+              <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }} formatter={(v) => [v, 'Tenants']} />
+              <Bar dataKey="tenants" radius={[6, 6, 0, 0]}>
+                {revenueByPlan.map((r) => (
+                  <Cell key={r.plan} fill={PLAN_COLOR[r.plan]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Growth + opportunity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Growth Signal</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-3 border-b border-gray-50">
+              <span className="text-sm text-gray-600">New tenants this month</span>
+              <span className="text-sm font-bold text-gray-900">{data.new_this_month}</span>
+            </div>
+            <div className="flex items-center justify-between py-3 border-b border-gray-50">
+              <span className="text-sm text-gray-600">New tenants last month</span>
+              <span className="text-sm font-bold text-gray-900">{data.new_last_month}</span>
+            </div>
+            <div className="flex items-center justify-between py-3 border-b border-gray-50">
+              <span className="text-sm text-gray-600">Month-over-month growth</span>
+              <span className={`text-sm font-bold ${data.growth_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {data.growth_pct >= 0 ? '+' : ''}{data.growth_pct}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-3">
+              <span className="text-sm text-gray-600">Active tenant rate</span>
+              <span className="text-sm font-bold text-gray-900">
+                {data.total_tenants > 0 ? Math.round(data.active_tenants / data.total_tenants * 100) : 0}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Upgrade Opportunity</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            Revenue potential if free tenants convert to paid plans.
+          </p>
+          <div className="space-y-3">
+            <div className="p-3 rounded-xl bg-blue-50 border border-blue-100">
+              <p className="text-xs text-blue-600 font-medium mb-1">If all Free → Pro</p>
+              <p className="text-xl font-bold text-blue-700">{fmtMRR(freeTenants * 49)}/mo additional</p>
+            </div>
+            <div className="p-3 rounded-xl bg-purple-50 border border-purple-100">
+              <p className="text-xs text-purple-600 font-medium mb-1">If all Free → Enterprise</p>
+              <p className="text-xl font-bold text-purple-700">{fmtMRR(freeTenants * 199)}/mo additional</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -194,114 +516,157 @@ function TenantsTab() {
   const [tenants, setTenants] = useState<PlatformTenant[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [planFilter, setPlanFilter] = useState<string>('All')
+  const [planFilter, setPlanFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('All')
+  const [sortKey, setSortKey] = useState<SortKey>('created_at')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   useEffect(() => {
     fetchPlatformTenants().then(setTenants).finally(() => setLoading(false))
   }, [])
 
-  const filtered = tenants.filter((t) => {
-    const matchSearch = t.name.toLowerCase().includes(search.toLowerCase())
-    const matchPlan = planFilter === 'All' || t.plan === planFilter
-    return matchSearch && matchPlan
-  })
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('desc') }
+  }
+
+  const filtered = useMemo(() => {
+    let rows = tenants.filter((t) => {
+      const matchSearch = t.name.toLowerCase().includes(search.toLowerCase())
+      const matchPlan = planFilter === 'All' || t.plan === planFilter
+      const matchStatus = statusFilter === 'All' || (statusFilter === 'Active' ? t.is_active : !t.is_active)
+      return matchSearch && matchPlan && matchStatus
+    })
+    rows = [...rows].sort((a, b) => {
+      const av = a[sortKey] ?? ''
+      const bv = b[sortKey] ?? ''
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+    return rows
+  }, [tenants, search, planFilter, statusFilter, sortKey, sortDir])
 
   if (loading) return <Spinner />
 
+  const totalMRR = filtered.reduce((s, t) => s + t.mrr, 0)
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <span className="text-gray-300 ml-1">↕</span>
+    return sortDir === 'asc' ? <ChevronUp size={12} className="inline ml-1" /> : <ChevronDown size={12} className="inline ml-1" />
+  }
+
+  const TH = ({ label, col }: { label: string; col?: SortKey }) => (
+    <th
+      className={`px-4 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide ${col ? 'cursor-pointer hover:text-gray-600 select-none' : ''}`}
+      onClick={col ? () => handleSort(col) : undefined}
+    >
+      {label}{col && <SortIcon col={col} />}
+    </th>
+  )
+
   return (
     <div className="space-y-4">
+      {/* Summary bar */}
+      <div className="flex gap-4 text-sm">
+        <span className="text-gray-500">Showing <strong className="text-gray-900">{filtered.length}</strong> of {tenants.length} tenants</span>
+        {filtered.length > 0 && <span className="text-gray-500">·  MRR for selection: <strong className="text-emerald-600">{fmtMRR(totalMRR)}/mo</strong></span>}
+      </div>
+
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
-            type="text"
-            placeholder="Search tenants…"
-            value={search}
+            type="text" placeholder="Search tenants…" value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
         </div>
-        <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1 w-fit">
+        <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1">
           {['All', 'Free', 'Pro', 'Enterprise'].map((p) => (
-            <button
-              key={p}
-              onClick={() => setPlanFilter(p)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                planFilter === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
+            <button key={p} onClick={() => setPlanFilter(p)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${planFilter === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
               {p}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1">
+          {['All', 'Active', 'Inactive'].map((s) => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              {s}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-50">
-              {['Tenant', 'Plan', 'Status', 'Users', 'Agents', 'Alerts', 'Last Activity', 'Joined'].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center py-12 text-sm text-gray-400">No tenants found.</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px]">
+            <thead>
+              <tr className="border-b border-gray-50">
+                <TH label="Tenant" col="name" />
+                <TH label="Plan" col="plan" />
+                <TH label="Status" col="is_active" />
+                <TH label="Users" col="user_count" />
+                <TH label="Agents" col="agent_count" />
+                <TH label="Alerts" col="alert_count" />
+                <TH label="Critical" col="critical_count" />
+                <TH label="MRR" col="mrr" />
+                <TH label="Last Active" col="last_activity" />
+                <TH label="Joined" col="created_at" />
               </tr>
-            ) : (
-              filtered.map((t) => (
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={10} className="text-center py-12 text-sm text-gray-400">No tenants found.</td></tr>
+              ) : filtered.map((t) => (
                 <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
-                        {t.name.slice(0, 2).toUpperCase()}
-                      </div>
+                      <TenantAvatar name={t.name} />
                       <div>
                         <p className="text-sm font-medium text-gray-900">{t.name}</p>
                         <p className="text-[11px] text-gray-400">ID #{t.id}</p>
                       </div>
                     </div>
                   </td>
+                  <td className="px-4 py-3.5"><PlanBadge plan={t.plan} /></td>
                   <td className="px-4 py-3.5">
-                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${PLAN_STYLE[t.plan] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {t.plan}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                      t.is_active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${t.is_active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${t.is_active ? 'bg-green-500' : 'bg-red-400'}`} />
                       {t.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-sm text-gray-700">{t.user_count}</td>
                   <td className="px-4 py-3.5 text-sm text-gray-700">
-                    <span className="flex items-center gap-1">
-                      {t.agent_count}
-                      {t.online_agents > 0 && (
-                        <span className="text-[10px] text-green-600 font-medium">({t.online_agents} online)</span>
-                      )}
-                    </span>
+                    <span>{t.agent_count}</span>
+                    {t.online_agents > 0 && <span className="ml-1 text-[10px] text-green-600">({t.online_agents} ●)</span>}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-gray-700">{t.alert_count}</td>
+                  <td className="px-4 py-3.5">
+                    {t.critical_count > 0
+                      ? <span className="text-xs font-semibold text-red-600">{t.critical_count}</span>
+                      : <span className="text-xs text-gray-400">—</span>}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm font-medium text-emerald-700">
+                    {t.mrr > 0 ? `$${t.mrr}/mo` : <span className="text-gray-400 font-normal">Free</span>}
+                  </td>
                   <td className="px-4 py-3.5 text-xs text-gray-400">{timeAgo(t.last_activity)}</td>
                   <td className="px-4 py-3.5 text-xs text-gray-400">
                     {t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        <div className="px-4 py-2.5 border-t border-gray-50 text-xs text-gray-400">
-          {filtered.length} of {tenants.length} tenants
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-4 py-2.5 border-t border-gray-50 text-xs text-gray-400 flex gap-4">
+          <span>{filtered.length} of {tenants.length} tenants shown</span>
+          {tenants.filter((t) => t.is_active).length > 0 && (
+            <span>· {tenants.filter((t) => t.is_active).length} active · {tenants.filter((t) => !t.is_active).length} inactive</span>
+          )}
         </div>
       </div>
     </div>
@@ -313,6 +678,8 @@ function TenantsTab() {
 function ActivityTab() {
   const [events, setEvents] = useState<PlatformActivity[]>([])
   const [loading, setLoading] = useState(true)
+  const [actionFilter, setActionFilter] = useState('ALL')
+  const [tenantFilter, setTenantFilter] = useState('All')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -321,50 +688,84 @@ function ActivityTab() {
 
   useEffect(() => { load() }, [load])
 
+  const allActions = useMemo(() => {
+    const s = new Set(events.map((e) => e.action))
+    return ['ALL', ...Array.from(s).sort()]
+  }, [events])
+
+  const allTenants = useMemo(() => {
+    const s = new Set(events.map((e) => e.tenant_name))
+    return ['All', ...Array.from(s).sort()]
+  }, [events])
+
+  const filtered = useMemo(() => events.filter((e) => {
+    const matchAction = actionFilter === 'ALL' || e.action === actionFilter
+    const matchTenant = tenantFilter === 'All' || e.tenant_name === tenantFilter
+    return matchAction && matchTenant
+  }), [events, actionFilter, tenantFilter])
+
   if (loading) return <Spinner />
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900">Platform Activity Feed</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Latest 100 events across all tenants</p>
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-wrap gap-1.5">
+          {allActions.map((a) => (
+            <button key={a} onClick={() => setActionFilter(a)}
+              className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${
+                actionFilter === a
+                  ? (ACTION_STYLE[a] ?? 'bg-gray-800 text-white border-gray-800')
+                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}>
+              {a}
+            </button>
+          ))}
         </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-        >
+        {allTenants.length > 2 && (
+          <select
+            value={tenantFilter} onChange={(e) => setTenantFilter(e.target.value)}
+            className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {allTenants.map((t) => <option key={t}>{t}</option>)}
+          </select>
+        )}
+        <button onClick={load}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 border border-gray-200 bg-white transition-colors ml-auto">
           <RefreshCw size={12} /> Refresh
         </button>
       </div>
 
-      <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
-        {events.length === 0 ? (
-          <p className="text-center py-12 text-sm text-gray-400">No activity recorded yet.</p>
-        ) : (
-          events.map((e) => (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Platform Activity Feed</h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {filtered.length} events shown {actionFilter !== 'ALL' || tenantFilter !== 'All' ? '(filtered)' : '(latest 200)'}
+            </p>
+          </div>
+        </div>
+
+        <div className="divide-y divide-gray-50 max-h-[640px] overflow-y-auto">
+          {filtered.length === 0 ? (
+            <p className="text-center py-12 text-sm text-gray-400">No activity matches the selected filters.</p>
+          ) : filtered.map((e) => (
             <div key={e.id} className="px-5 py-3.5 flex items-start gap-3 hover:bg-gray-50/50 transition-colors">
-              <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${ACTION_COLOR[e.action] ?? 'bg-gray-400'}`} />
+              <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${ACTION_STYLE[e.action] ?? 'bg-gray-100 text-gray-600'}`}>
+                {e.action}
+              </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-semibold text-gray-900">{e.action}</span>
-                  <span className="text-xs text-gray-400">·</span>
-                  <span className="text-xs font-medium text-blue-600">{e.tenant_name}</span>
-                  {e.user_name && (
-                    <>
-                      <span className="text-xs text-gray-400">·</span>
-                      <span className="text-xs text-gray-500">{e.user_name}</span>
-                    </>
-                  )}
+                  <span className="text-xs font-semibold text-blue-600">{e.tenant_name}</span>
+                  {e.user_name && <><span className="text-xs text-gray-400">·</span><span className="text-xs text-gray-500">{e.user_name}</span></>}
+                  {e.resource_type && <><span className="text-xs text-gray-400">·</span><span className="text-xs text-gray-400 italic">{e.resource_type}</span></>}
                 </div>
-                {e.details && (
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">{e.details}</p>
-                )}
+                {e.details && <p className="text-xs text-gray-500 mt-0.5 truncate">{e.details}</p>}
               </div>
               <span className="text-[11px] text-gray-400 shrink-0 whitespace-nowrap">{timeAgo(e.timestamp)}</span>
             </div>
-          ))
-        )}
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -386,23 +787,57 @@ function SystemTab() {
 
   useEffect(() => {
     load()
-    const id = setInterval(load, 30_000)   // auto-refresh every 30s
+    const id = setInterval(load, 30_000)
     return () => clearInterval(id)
   }, [load])
 
+  const services = data ? [
+    {
+      label: 'API Server',
+      icon: Globe,
+      status: data.status,
+      detail: 'FastAPI / Uvicorn',
+      latency: null,
+      extra: `v${data.version}`,
+    },
+    {
+      label: 'Database',
+      icon: Database,
+      status: data.db,
+      detail: 'PostgreSQL',
+      latency: data.db_latency_ms,
+      extra: data.db_latency_ms != null ? `${data.db_latency_ms} ms` : null,
+    },
+    {
+      label: 'Redis / Celery',
+      icon: data.redis === 'ok' ? Wifi : WifiOff,
+      status: data.redis,
+      detail: 'Task broker',
+      latency: data.redis_latency_ms,
+      extra: data.redis_latency_ms != null ? `${data.redis_latency_ms} ms` : null,
+    },
+    {
+      label: 'Uptime',
+      icon: Clock,
+      status: 'ok' as const,
+      detail: 'Server uptime',
+      latency: null,
+      extra: fmtUptime(data.uptime_seconds),
+    },
+  ] : []
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Controls */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-gray-900">System Health</h3>
           <p className="text-xs text-gray-400">Auto-refreshes every 30 seconds</p>
         </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-        >
+        <button onClick={load}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 border border-gray-200 bg-white transition-colors">
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-          Last: {lastRefresh.toLocaleTimeString()}
+          Refreshed {lastRefresh.toLocaleTimeString()}
         </button>
       </div>
 
@@ -413,8 +848,7 @@ function SystemTab() {
         }`}>
           {data.status === 'ok'
             ? <CheckCircle2 size={20} className="text-green-600 shrink-0" />
-            : <XCircle size={20} className="text-red-500 shrink-0" />
-          }
+            : <XCircle size={20} className="text-red-500 shrink-0" />}
           <div>
             <p className={`text-sm font-semibold ${data.status === 'ok' ? 'text-green-800' : 'text-red-700'}`}>
               {data.status === 'ok' ? 'All systems operational' : 'System degraded — check details below'}
@@ -426,54 +860,69 @@ function SystemTab() {
 
       {/* Service cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'API Server',     icon: Server,   value: data?.status ?? 'ok',             desc: 'FastAPI backend' },
-          { label: 'Database',       icon: data?.db === 'ok' ? Wifi : WifiOff, value: data?.db ?? 'ok', desc: 'PostgreSQL' },
-          { label: 'Redis / Celery', icon: Activity, value: data?.redis ?? 'not configured',  desc: 'Task broker' },
-          { label: 'Uptime',         icon: Clock,    value: 'ok',                              desc: data ? fmtUptime(data.uptime_seconds) : '—' },
-        ].map(({ label, icon: Icon, value, desc }) => (
+        {services.map(({ label, icon: Icon, status, detail, extra }) => (
           <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-gray-400 font-medium">{label}</span>
-              <Icon size={16} className="text-gray-400" />
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-semibold text-gray-500">{label}</span>
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${
+                status === 'ok' ? 'bg-green-50' : status === 'not configured' ? 'bg-gray-50' : 'bg-red-50'
+              }`}>
+                <Icon size={15} className={status === 'ok' ? 'text-green-600' : status === 'not configured' ? 'text-gray-400' : 'text-red-500'} />
+              </div>
             </div>
-            <StatusPill value={value} />
-            <p className="text-xs text-gray-400 mt-2">{desc}</p>
+            <StatusPill value={status} />
+            <p className="text-xs text-gray-400 mt-2">{detail}</p>
+            {extra && <p className="text-xs font-medium text-gray-600 mt-1">{extra}</p>}
           </div>
         ))}
       </div>
+
+      {/* Health checks detail */}
+      {data && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Health Check Details</h3>
+          <div className="divide-y divide-gray-50">
+            {[
+              { name: 'Database connectivity', status: data.db, latency: data.db_latency_ms },
+              { name: 'Redis / task broker', status: data.redis, latency: data.redis_latency_ms },
+              { name: 'API server', status: data.status, latency: null },
+            ].map((row) => (
+              <div key={row.name} className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-3">
+                  {row.status === 'ok'
+                    ? <CheckCircle2 size={14} className="text-green-500" />
+                    : row.status === 'not configured'
+                    ? <Clock size={14} className="text-gray-400" />
+                    : <XCircle size={14} className="text-red-500" />}
+                  <span className="text-sm text-gray-700">{row.name}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {row.latency != null && (
+                    <span className={`text-xs font-medium ${row.latency < 50 ? 'text-green-600' : row.latency < 200 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {row.latency} ms
+                    </span>
+                  )}
+                  <StatusPill value={row.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading && !data && <Spinner />}
     </div>
   )
 }
 
-// ── Shared ────────────────────────────────────────────────────────────────────
-
-function Spinner() {
-  return (
-    <div className="flex items-center justify-center py-20 gap-2 text-gray-400">
-      <RefreshCw size={16} className="animate-spin" />
-      <span className="text-sm">Loading…</span>
-    </div>
-  )
-}
-
-function ErrorMsg({ msg }: { msg: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3 border border-red-200">
-      <AlertTriangle size={14} /> {msg}
-    </div>
-  )
-}
-
-// ── Sidebar nav items ─────────────────────────────────────────────────────────
+// ── Sidebar nav ───────────────────────────────────────────────────────────────
 
 const NAV: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: 'overview',  label: 'Overview',        icon: LayoutDashboard },
-  { id: 'tenants',   label: 'Tenants',          icon: Building2       },
-  { id: 'activity',  label: 'Activity Feed',    icon: Activity        },
-  { id: 'system',    label: 'System Health',    icon: Server          },
+  { id: 'overview',  label: 'Overview',      icon: LayoutDashboard },
+  { id: 'revenue',   label: 'Revenue',        icon: DollarSign      },
+  { id: 'tenants',   label: 'Tenants',        icon: Building2       },
+  { id: 'activity',  label: 'Activity Feed',  icon: Activity        },
+  { id: 'system',    label: 'System Health',  icon: Server          },
 ]
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -486,9 +935,18 @@ export default function PlatformAdmin() {
 
   const TAB_TITLES: Record<Tab, string> = {
     overview: 'Platform Overview',
+    revenue:  'Revenue & Business',
     tenants:  'Tenant Registry',
     activity: 'Activity Feed',
     system:   'System Health',
+  }
+
+  const TAB_DESCS: Record<Tab, string> = {
+    overview: 'Platform-wide KPIs, trends, and engagement metrics',
+    revenue:  'MRR, ARR, plan distribution, and upgrade opportunities',
+    tenants:  'All customer tenants — usage stats, status, and plan',
+    activity: 'Cross-tenant audit log and user actions',
+    system:   'Backend health, database latency, and uptime',
   }
 
   async function handleLogout() {
@@ -499,30 +957,30 @@ export default function PlatformAdmin() {
   return (
     <div className="min-h-screen bg-[#F3F5F9] flex">
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
-      <aside className="fixed inset-y-0 left-0 w-60 bg-[#0f172a] text-white flex flex-col z-40">
+      <aside className="fixed inset-y-0 left-0 w-64 bg-[#0f172a] text-white flex flex-col z-40">
         {/* Brand */}
         <div className="px-5 py-5 border-b border-white/10">
-          <div className="flex items-center gap-2.5 mb-0.5">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-              <ShieldCheck size={16} className="text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+              <ShieldCheck size={18} className="text-white" />
             </div>
             <div>
               <p className="text-sm font-bold tracking-wide text-white">PLATFORM ADMIN</p>
-              <p className="text-[10px] text-white/40">SentryXDR Operator Console</p>
+              <p className="text-[10px] text-white/40 leading-tight">SentryXDR Operator Console</p>
             </div>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {NAV.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                 tab === id
-                  ? 'bg-blue-600 text-white'
-                  : 'text-white/60 hover:bg-white/10 hover:text-white'
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/40'
+                  : 'text-white/55 hover:bg-white/8 hover:text-white'
               }`}
             >
               <Icon size={17} />
@@ -532,17 +990,17 @@ export default function PlatformAdmin() {
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-4 border-t border-white/10 space-y-2">
-          <div className="flex items-center gap-3 px-3 pt-1">
-            <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
-              {user?.initials ?? 'U'}
+        <div className="px-4 py-4 border-t border-white/10">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/5">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+              {user?.initials ?? 'PA'}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white truncate">{user?.firstName} {user?.lastName}</p>
+              <p className="text-xs font-semibold text-white truncate">{user?.name ?? 'Platform Admin'}</p>
               <p className="text-[10px] text-white/40 truncate">{user?.email}</p>
             </div>
             <button onClick={handleLogout} title="Sign out"
-              className="text-white/40 hover:text-white transition-colors">
+              className="text-white/40 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
               <LogOut size={14} />
             </button>
           </div>
@@ -550,27 +1008,31 @@ export default function PlatformAdmin() {
       </aside>
 
       {/* ── Main content ──────────────────────────────────────────────────── */}
-      <div className="ml-60 flex-1 min-w-0">
+      <div className="ml-64 flex-1 min-w-0">
         {/* Top bar */}
-        <div className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-100 px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-base font-bold text-gray-900">{TAB_TITLES[tab]}</h1>
-            <p className="text-xs text-gray-400">SentryXDR · Operator view</p>
+            <p className="text-xs text-gray-400 mt-0.5">{TAB_DESCS[tab]}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full ring-1 ring-emerald-200">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full ring-1 ring-emerald-200">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Live
+            </span>
+            <span className="text-xs text-gray-400">
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
           </div>
         </div>
 
         {/* Content */}
         <main className="p-6">
-          {tab === 'overview' && <OverviewTab />}
-          {tab === 'tenants'  && <TenantsTab />}
-          {tab === 'activity' && <ActivityTab />}
-          {tab === 'system'   && <SystemTab />}
+          {tab === 'overview'  && <OverviewTab />}
+          {tab === 'revenue'   && <RevenueTab />}
+          {tab === 'tenants'   && <TenantsTab />}
+          {tab === 'activity'  && <ActivityTab />}
+          {tab === 'system'    && <SystemTab />}
         </main>
       </div>
     </div>
