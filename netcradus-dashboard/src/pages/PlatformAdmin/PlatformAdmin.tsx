@@ -9,17 +9,21 @@ import {
   RefreshCw, Users, Monitor, Bell, AlertTriangle, CheckCircle2,
   XCircle, Wifi, WifiOff, Clock, ShieldCheck, Search, LogOut,
   TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown,
-  Zap, Globe, Database,
+  Zap, Globe, Database, Headphones, MessageSquare, ChevronRight,
+  Send, X,
 } from 'lucide-react'
 import {
-  fetchPlatformOverview, fetchPlatformTenants, fetchPlatformActivity, fetchPlatformSystem,
+  fetchPlatformOverview, fetchPlatformTenants, fetchPlatformActivity,
+  fetchPlatformSystem, fetchPlatformSupport, updateTicketStatus,
 } from '@/api/platformApi'
-import type { PlatformOverview, PlatformTenant, PlatformActivity, PlatformSystem } from '@/api/platformApi'
+import type {
+  PlatformOverview, PlatformTenant, PlatformActivity, PlatformSystem, PlatformSupportTicket,
+} from '@/api/platformApi'
 import { useAuthStore } from '@/store/authStore'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'revenue' | 'tenants' | 'activity' | 'system'
+type Tab = 'overview' | 'revenue' | 'tenants' | 'activity' | 'system' | 'support'
 type SortKey = keyof PlatformTenant
 type SortDir = 'asc' | 'desc'
 
@@ -915,6 +919,298 @@ function SystemTab() {
   )
 }
 
+// ── Support Tab ───────────────────────────────────────────────────────────────
+
+const PRIORITY_STYLE: Record<string, string> = {
+  Low:      'bg-gray-100 text-gray-600',
+  Medium:   'bg-blue-50 text-blue-700',
+  High:     'bg-amber-50 text-amber-700',
+  Critical: 'bg-red-100 text-red-700',
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  Open:        'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+  'In Progress': 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+  Resolved:    'bg-green-50 text-green-700 ring-1 ring-green-200',
+  Closed:      'bg-gray-100 text-gray-500',
+}
+
+function TicketDetailModal({
+  ticket,
+  onClose,
+  onUpdated,
+}: {
+  ticket: PlatformSupportTicket
+  onClose: () => void
+  onUpdated: (updated: { id: number; status: string; admin_note: string | null }) => void
+}) {
+  const [status, setStatus]   = useState(ticket.status)
+  const [note, setNote]       = useState(ticket.admin_note ?? '')
+  const [saving, setSaving]   = useState(false)
+  const [saved, setSaved]     = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const res = await updateTicketStatus(ticket.id, { status, admin_note: note || undefined })
+      onUpdated(res)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <MessageSquare size={15} className="text-blue-600" />
+            <h2 className="text-sm font-semibold text-gray-900">Ticket #{ticket.id}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Meta */}
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div><span className="text-gray-400">Tenant</span><p className="font-medium text-gray-900 mt-0.5">{ticket.tenant_name}</p></div>
+            <div><span className="text-gray-400">User</span><p className="font-medium text-gray-900 mt-0.5">{ticket.user_name}</p></div>
+            <div><span className="text-gray-400">Email</span><p className="font-medium text-gray-900 mt-0.5 truncate">{ticket.user_email}</p></div>
+            <div><span className="text-gray-400">Submitted</span><p className="font-medium text-gray-900 mt-0.5">{timeAgo(ticket.created_at)}</p></div>
+          </div>
+
+          {/* Subject + Priority */}
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Subject</p>
+            <div className="flex items-start gap-2">
+              <p className="flex-1 text-sm font-semibold text-gray-900">{ticket.subject}</p>
+              <span className={`shrink-0 text-xs font-medium px-2.5 py-0.5 rounded-full ${PRIORITY_STYLE[ticket.priority] ?? 'bg-gray-100 text-gray-600'}`}>
+                {ticket.priority}
+              </span>
+            </div>
+          </div>
+
+          {/* Message */}
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Message</p>
+            <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap max-h-40 overflow-y-auto border border-gray-100">
+              {ticket.message}
+            </div>
+          </div>
+
+          {/* Status update */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Update Status</label>
+            <div className="flex gap-1.5 flex-wrap">
+              {['Open', 'In Progress', 'Resolved', 'Closed'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStatus(s)}
+                  className={`text-xs font-medium px-3 py-1 rounded-full border transition-all ${
+                    status === s
+                      ? (STATUS_STYLE[s] ?? 'bg-gray-800 text-white border-gray-800')
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Admin note */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Admin Note (optional)</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              placeholder="Internal notes visible to Platform Admin only…"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <button onClick={onClose} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          >
+            {saving ? <RefreshCw size={12} className="animate-spin" /> : saved ? <CheckCircle2 size={12} /> : <Send size={12} />}
+            {saved ? 'Saved!' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SupportTab() {
+  const [tickets, setTickets]             = useState<PlatformSupportTicket[]>([])
+  const [loading, setLoading]             = useState(true)
+  const [statusFilter, setStatusFilter]   = useState('All')
+  const [priorityFilter, setPriorityFilter] = useState('All')
+  const [search, setSearch]               = useState('')
+  const [selected, setSelected]           = useState<PlatformSupportTicket | null>(null)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    fetchPlatformSupport().then(setTickets).finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  function handleUpdated(updated: { id: number; status: string; admin_note: string | null }) {
+    setTickets((prev) =>
+      prev.map((t) => t.id === updated.id ? { ...t, status: updated.status, admin_note: updated.admin_note } : t)
+    )
+    setSelected((prev) => prev && prev.id === updated.id ? { ...prev, status: updated.status, admin_note: updated.admin_note } : prev)
+  }
+
+  const filtered = useMemo(() => tickets.filter((t) => {
+    const matchStatus   = statusFilter === 'All' || t.status === statusFilter
+    const matchPriority = priorityFilter === 'All' || t.priority === priorityFilter
+    const matchSearch   = !search || t.subject.toLowerCase().includes(search.toLowerCase()) || t.tenant_name.toLowerCase().includes(search.toLowerCase()) || t.user_name.toLowerCase().includes(search.toLowerCase())
+    return matchStatus && matchPriority && matchSearch
+  }), [tickets, statusFilter, priorityFilter, search])
+
+  const openCount     = tickets.filter((t) => t.status === 'Open').length
+  const inProgressCnt = tickets.filter((t) => t.status === 'In Progress').length
+  const criticalCount = tickets.filter((t) => t.priority === 'Critical').length
+
+  if (loading) return <Spinner />
+
+  return (
+    <div className="space-y-5">
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+            <MessageSquare size={18} className="text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">Open Tickets</p>
+            <p className="text-2xl font-bold text-gray-900">{openCount}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+            <Activity size={18} className="text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">In Progress</p>
+            <p className="text-2xl font-bold text-gray-900">{inProgressCnt}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+            <AlertTriangle size={18} className="text-red-500" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">Critical Priority</p>
+            <p className="text-2xl font-bold text-gray-900">{criticalCount}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text" placeholder="Search tickets, tenants, users…" value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          />
+        </div>
+        <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1">
+          {['All', 'Open', 'In Progress', 'Resolved', 'Closed'].map((s) => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1">
+          {['All', 'Low', 'Medium', 'High', 'Critical'].map((p) => (
+            <button key={p} onClick={() => setPriorityFilter(p)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${priorityFilter === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              {p}
+            </button>
+          ))}
+        </div>
+        <button onClick={load}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 border border-gray-200 bg-white transition-colors">
+          <RefreshCw size={12} /> Refresh
+        </button>
+      </div>
+
+      {/* Ticket list */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50 text-xs text-gray-400">
+          {filtered.length} ticket{filtered.length !== 1 ? 's' : ''} shown
+          {statusFilter !== 'All' || priorityFilter !== 'All' || search ? ' (filtered)' : ' (all)'}
+        </div>
+        {filtered.length === 0 ? (
+          <div className="text-center py-16 text-sm text-gray-400">
+            <Headphones size={28} className="mx-auto mb-3 text-gray-300" />
+            <p>No support tickets yet.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {filtered.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setSelected(t)}
+                className="w-full text-left px-5 py-4 hover:bg-gray-50/70 transition-colors flex items-start gap-4"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${PRIORITY_STYLE[t.priority] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {t.priority}
+                    </span>
+                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${STATUS_STYLE[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {t.status}
+                    </span>
+                    <span className="text-xs font-semibold text-blue-600">{t.tenant_name}</span>
+                    <span className="text-xs text-gray-400">· {t.user_name}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 truncate">{t.subject}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{t.message}</p>
+                  {t.admin_note && (
+                    <p className="text-xs text-indigo-600 mt-1 line-clamp-1">Note: {t.admin_note}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-gray-400 whitespace-nowrap">{timeAgo(t.created_at)}</span>
+                  <ChevronRight size={14} className="text-gray-300" />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selected && (
+        <TicketDetailModal
+          ticket={selected}
+          onClose={() => setSelected(null)}
+          onUpdated={handleUpdated}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 
 const NAV: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -923,6 +1219,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'tenants',   label: 'Tenants',        icon: Building2       },
   { id: 'activity',  label: 'Activity Feed',  icon: Activity        },
   { id: 'system',    label: 'System Health',  icon: Server          },
+  { id: 'support',   label: 'Support Tickets', icon: Headphones     },
 ]
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -939,6 +1236,7 @@ export default function PlatformAdmin() {
     tenants:  'Tenant Registry',
     activity: 'Activity Feed',
     system:   'System Health',
+    support:  'Support Tickets',
   }
 
   const TAB_DESCS: Record<Tab, string> = {
@@ -947,6 +1245,7 @@ export default function PlatformAdmin() {
     tenants:  'All customer tenants — usage stats, status, and plan',
     activity: 'Cross-tenant audit log and user actions',
     system:   'Backend health, database latency, and uptime',
+    support:  'All customer support tickets — view, respond, and update status',
   }
 
   async function handleLogout() {
@@ -1033,6 +1332,7 @@ export default function PlatformAdmin() {
           {tab === 'tenants'   && <TenantsTab />}
           {tab === 'activity'  && <ActivityTab />}
           {tab === 'system'    && <SystemTab />}
+          {tab === 'support'   && <SupportTab />}
         </main>
       </div>
     </div>

@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.core.permissions import platform_admin_required
 from app.database.db import get_db
+from pydantic import BaseModel
 from app.models.agent import Agent
 from app.models.alert import Alert
 from app.models.audit_log import AuditLog
+from app.models.support_ticket import SupportTicket
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -284,3 +286,66 @@ def platform_system(
         "version":          "1.0.0",
         "uptime_seconds":   uptime,
     }
+
+
+class UpdateTicketRequest(BaseModel):
+    status:     str | None = None
+    admin_note: str | None = None
+
+
+@router.get("/support")
+def platform_support(
+    _=Depends(platform_admin_required),
+    db: Session = Depends(get_db),
+):
+    """All support tickets raised across all tenants."""
+    tickets = (
+        db.query(SupportTicket)
+        .order_by(SupportTicket.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id":          t.id,
+            "tenant_name": t.tenant_name or "—",
+            "user_name":   t.user_name or "—",
+            "user_email":  t.user_email or "—",
+            "subject":     t.subject,
+            "message":     t.message,
+            "priority":    t.priority,
+            "status":      t.status,
+            "admin_note":  t.admin_note,
+            "created_at":  t.created_at.isoformat() if t.created_at else None,
+            "updated_at":  t.updated_at.isoformat() if t.updated_at else None,
+        }
+        for t in tickets
+    ]
+
+
+@router.patch("/support/{ticket_id}")
+def update_ticket(
+    ticket_id: int,
+    body: UpdateTicketRequest,
+    _=Depends(platform_admin_required),
+    db: Session = Depends(get_db),
+):
+    """Update status or add an admin note to a support ticket."""
+    from datetime import datetime as dt
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    valid_statuses = {"Open", "In Progress", "Resolved", "Closed"}
+    if body.status and body.status not in valid_statuses:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="Invalid status")
+
+    if body.status is not None:
+        ticket.status = body.status
+    if body.admin_note is not None:
+        ticket.admin_note = body.admin_note
+    ticket.updated_at = dt.utcnow()
+    db.commit()
+    db.refresh(ticket)
+    return {"id": ticket.id, "status": ticket.status, "admin_note": ticket.admin_note}

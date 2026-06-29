@@ -28,6 +28,7 @@ from app.api.ai import router as ai_router
 from app.api.super_admin import router as super_admin_router
 from app.api.platform_admin import router as platform_admin_router
 from app.api.health import router as health_router
+from app.api.support import router as support_router
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
@@ -69,6 +70,7 @@ app.include_router(threat_feeds_router)
 app.include_router(ai_router)
 app.include_router(super_admin_router)
 app.include_router(platform_admin_router)
+app.include_router(support_router)
 
 
 @app.on_event("startup")

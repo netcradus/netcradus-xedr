@@ -58,7 +58,32 @@ export interface PlatformSystem {
   uptime_seconds: number
 }
 
+export interface PlatformSupportTicket {
+  id: number
+  tenant_name: string
+  user_name: string
+  user_email: string
+  subject: string
+  message: string
+  priority: string
+  status: string
+  admin_note: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface UpdateTicketPayload {
+  status?: string
+  admin_note?: string
+}
+
 export const fetchPlatformOverview = () => apiFetch<PlatformOverview>('/platform/overview')
 export const fetchPlatformTenants  = () => apiFetch<PlatformTenant[]>('/platform/tenants')
 export const fetchPlatformActivity = () => apiFetch<PlatformActivity[]>('/platform/activity')
 export const fetchPlatformSystem   = () => apiFetch<PlatformSystem>('/platform/system')
+export const fetchPlatformSupport  = () => apiFetch<PlatformSupportTicket[]>('/platform/support')
+export const updateTicketStatus    = (id: number, payload: UpdateTicketPayload) =>
+  apiFetch<{ id: number; status: string; admin_note: string | null }>(`/platform/support/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })

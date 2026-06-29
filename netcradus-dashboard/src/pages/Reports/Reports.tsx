@@ -91,6 +91,60 @@ function formatDate(iso: string) {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
+// ── Download helpers ──────────────────────────────────────────────────────────
+
+function downloadCSV(data: ReportSummary) {
+  const rows: string[][] = [
+    ['SentryXDR Security Report', '', ''],
+    ['Generated', new Date().toISOString(), ''],
+    ['Period', 'Last 30 days', ''],
+    ['', '', ''],
+    ['SUMMARY', '', ''],
+    ['Metric', 'Value', ''],
+    ['Total Alerts', String(data.alerts.total), ''],
+    ['Open Alerts', String(data.alerts.open), ''],
+    ['Resolved Alerts', String(data.alerts.resolved), ''],
+    ['Total Incidents', String(data.incidents.total), ''],
+    ['Resolved Incidents', String(data.incidents.resolved), ''],
+    ['MTTR (hours)', data.incidents.mttr_hours != null ? String(data.incidents.mttr_hours) : '—', ''],
+    ['Total Endpoints', String(data.agents.total), ''],
+    ['Online Endpoints', String(data.agents.online), ''],
+    ['SOAR Actions', String(data.commands.total), ''],
+    ['SOAR Completed', String(data.commands.completed), ''],
+    ['', '', ''],
+    ['ALERTS BY SEVERITY', '', ''],
+    ['Severity', 'Count', ''],
+    ...Object.entries(data.alerts.by_severity).map(([k, v]) => [k, String(v), '']),
+    ['', '', ''],
+    ['TOP MITRE TECHNIQUES', '', ''],
+    ['Technique', 'Count', ''],
+    ...data.top_mitre.slice(0, 10).map((m) => [m.technique, String(m.count), '']),
+    ['', '', ''],
+    ['30-DAY ALERT TREND', '', ''],
+    ['Date', 'Alert Count', ''],
+    ...data.trend_30d.map((d) => [d.date, String(d.count), '']),
+  ]
+  const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `sentryxdr-report-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function downloadJSON(data: ReportSummary) {
+  const report = { generated_at: new Date().toISOString(), period: 'Last 30 days', ...data }
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `sentryxdr-report-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ data }: { data: ReportSummary }) {
@@ -114,6 +168,35 @@ function OverviewTab({ data }: { data: ReportSummary }) {
 
   return (
     <div className="space-y-4">
+      {/* Download bar */}
+      <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Download size={15} className="text-blue-600" />
+          <span className="text-sm font-medium text-blue-800">Download this report</span>
+          <span className="text-xs text-blue-500">· Last 30 days · {new Date().toLocaleDateString()}</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => downloadCSV(data)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+          >
+            <Download size={12} /> CSV
+          </button>
+          <button
+            onClick={() => downloadJSON(data)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+          >
+            <FileJson size={12} /> JSON
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            <Download size={12} /> PDF
+          </button>
+        </div>
+      </div>
+
       {/* Stat strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Total Alerts" value={alerts.total}
@@ -295,23 +378,29 @@ function ComplianceTab() {
 // ── Export tab ────────────────────────────────────────────────────────────────
 
 function ExportTab({ data }: { data: ReportSummary }) {
-  function downloadJSON() {
-    const report = {
-      generated_at: new Date().toISOString(),
-      period: 'Last 30 days',
-      ...data,
-    }
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `sentryxdr-report-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <div className="space-y-4 max-w-lg">
+      <Card>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center">
+            <Download size={20} className="text-green-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">CSV Export</h3>
+            <p className="text-xs text-gray-400">Spreadsheet-ready summary — open in Excel or Google Sheets</p>
+          </div>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Downloads a CSV with all key metrics: alert counts by severity, incident MTTR, endpoint stats, SOAR action summary, top MITRE techniques, and the 30-day alert trend.
+        </p>
+        <button
+          onClick={() => downloadCSV(data)}
+          className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+        >
+          <Download size={15} /> Download CSV Report
+        </button>
+      </Card>
+
       <Card>
         <div className="flex items-center gap-3 mb-5">
           <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -323,10 +412,10 @@ function ExportTab({ data }: { data: ReportSummary }) {
           </div>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Downloads a structured JSON file containing all metrics — alert volumes, incident stats, MITRE technique frequencies, MTTR, and 30-day trend data. Suitable for importing into external dashboards or SIEM tools.
+          Downloads a structured JSON file with all metrics — suitable for importing into external dashboards or SIEM tools.
         </p>
         <button
-          onClick={downloadJSON}
+          onClick={() => downloadJSON(data)}
           className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors"
         >
           <Download size={15} /> Download JSON Report
@@ -344,7 +433,7 @@ function ExportTab({ data }: { data: ReportSummary }) {
           </div>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Open the Overview tab and use your browser's print function (Ctrl+P / ⌘P). Choose "Save as PDF" for a printable compliance report.
+          Use your browser's print function (Ctrl+P / ⌘P) and choose "Save as PDF" for a printable compliance report.
         </p>
         <button
           onClick={() => window.print()}

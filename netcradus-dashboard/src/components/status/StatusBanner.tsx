@@ -1,7 +1,7 @@
 
 import { ShieldCheck, CheckCircle2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import Card from '@/components/ui/Card/Card'
-import Button from '@/components/ui/Button/Button'
 
 export default function StatusBanner() {
   return (
@@ -40,7 +40,12 @@ export default function StatusBanner() {
         </div>
       </div>
 
-      <Button variant="primary">View Report</Button>
+      <Link
+        to="/reports"
+        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-brand-blue text-white rounded-lg hover:bg-[#2d5cc8] transition-colors whitespace-nowrap"
+      >
+        View Report
+      </Link>
     </Card>
   )
 }
