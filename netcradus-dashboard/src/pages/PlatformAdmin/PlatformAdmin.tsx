@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import {
-  LayoutDashboard, Building2, Activity, Server, ArrowLeft,
+  LayoutDashboard, Building2, Activity, Server,
   RefreshCw, Users, Monitor, Bell, AlertTriangle, CheckCircle2,
   XCircle, Wifi, WifiOff, Clock, ShieldCheck, Search, LogOut,
 } from 'lucide-react'
@@ -533,12 +533,6 @@ export default function PlatformAdmin() {
 
         {/* Footer */}
         <div className="px-4 py-4 border-t border-white/10 space-y-2">
-          <button
-            onClick={() => navigate('/')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <ArrowLeft size={15} /> Back to Dashboard
-          </button>
           <div className="flex items-center gap-3 px-3 pt-1">
             <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
               {user?.initials ?? 'U'}

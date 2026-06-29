@@ -5,10 +5,11 @@ from app.models.role import Role
 def seed_roles(db: Session):
 
     roles = [
+        "PlatformAdmin",
         "SuperAdmin",
         "Admin",
         "Analyst",
-        "Viewer"
+        "Viewer",
     ]
 
     for role_name in roles:

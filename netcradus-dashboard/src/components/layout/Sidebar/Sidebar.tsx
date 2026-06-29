@@ -17,8 +17,6 @@ import {
   X,
   Sparkles,
   Building2,
-  ShieldCheck,
-  ExternalLink,
 } from 'lucide-react'
 import { NAV_ITEMS, type NavItem } from '@/constants/navItems'
 import { useAuthStore } from '@/store/authStore'
@@ -134,27 +132,6 @@ export default function Sidebar() {
               </NavLink>
             )
           })}
-
-          {/* Platform Admin launch button — SuperAdmin only */}
-          {user?.role === 'SuperAdmin' && (
-            <NavLink
-              to="/platform-admin"
-              onClick={closeOnMobile}
-              className={({ isActive }) =>
-                `flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors duration-200 mt-1 ${
-                  isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-white/70 hover:bg-sidebar-hover hover:text-white'
-                }`
-              }
-            >
-              <span className="flex items-center gap-3">
-                <ShieldCheck size={18} />
-                Platform Admin
-              </span>
-              <ExternalLink size={12} className="text-white/40" />
-            </NavLink>
-          )}
 
           {/* Help card — moved inside <nav> so it scrolls together with the
               nav items instead of reserving its own fixed slice of the

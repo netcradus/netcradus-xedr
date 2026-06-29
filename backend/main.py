@@ -32,6 +32,7 @@ from app.api.health import router as health_router
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
 from app.services.agent_service import update_offline_agents
+from app.services.platform_admin_service import seed_platform_admin
 import threading
 import time
 
@@ -75,6 +76,7 @@ def startup():
     db = SessionLocal()
     seed_roles(db)
     create_default_tenant(db)
+    seed_platform_admin(db)
     db.close()
 
     threading.Thread(target=_offline_monitor, daemon=True).start()

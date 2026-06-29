@@ -4,6 +4,16 @@ from app.models.user import User
 from app.core.dependencies import get_current_user
 
 
+def platform_admin_required(
+        current_user: User = Depends(get_current_user)):
+    if current_user.role.name != "PlatformAdmin":
+        raise HTTPException(
+            status_code=403,
+            detail="Platform Admin access required"
+        )
+    return current_user
+
+
 def superadmin_required(
         current_user: User = Depends(
             get_current_user

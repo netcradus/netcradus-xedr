@@ -28,6 +28,13 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function PlatformAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.role !== 'PlatformAdmin') return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -43,8 +50,8 @@ export default function AppRoutes() {
       {/* Onboarding — protected, no sidebar layout */}
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-      {/* Platform Admin — SuperAdmin only, own full-page layout */}
-      <Route path="/platform-admin" element={<ProtectedRoute><PlatformAdmin /></ProtectedRoute>} />
+      {/* Platform Admin — PlatformAdmin role only, own full-page layout */}
+      <Route path="/platform-admin" element={<PlatformAdminRoute><PlatformAdmin /></PlatformAdminRoute>} />
 
       {/* Protected dashboard routes */}
       <Route

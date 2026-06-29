@@ -58,7 +58,8 @@ export default function Login() {
 
     const result = await login({ email, password })
     if (result === true) {
-      navigate(redirectTo, { replace: true })
+      const user = useAuthStore.getState().user
+      navigate(user?.role === 'PlatformAdmin' ? '/platform-admin' : redirectTo, { replace: true })
     } else if (result && typeof result === 'object' && 'mfaRequired' in result) {
       setMfaSession((result as { mfaSession: string }).mfaSession)
       setMfaStep(true)
@@ -73,7 +74,7 @@ export default function Login() {
     setMfaLoading(false)
     if (result.success && result.user) {
       useAuthStore.setState({ user: result.user, isAuthenticated: true })
-      navigate(redirectTo, { replace: true })
+      navigate(result.user.role === 'PlatformAdmin' ? '/platform-admin' : redirectTo, { replace: true })
     } else {
       setMfaError(result.error ?? 'Invalid code. Try again.')
       setTotpCode('')

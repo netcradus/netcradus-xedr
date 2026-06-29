@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from app.core.permissions import superadmin_required
+from app.core.permissions import platform_admin_required
 from app.database.db import get_db
 from app.models.agent import Agent
 from app.models.alert import Alert
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/platform", tags=["Platform Admin"])
 
 @router.get("/overview")
 def platform_overview(
-    _=Depends(superadmin_required),
+    _=Depends(platform_admin_required),
     db: Session = Depends(get_db),
 ):
     """Platform-wide KPIs and trend data for the SaaS operator."""
@@ -74,7 +74,7 @@ def platform_overview(
 
 @router.get("/tenants")
 def platform_tenants(
-    _=Depends(superadmin_required),
+    _=Depends(platform_admin_required),
     db: Session = Depends(get_db),
 ):
     """All tenants with usage stats and last-activity timestamp."""
@@ -113,7 +113,7 @@ def platform_tenants(
 
 @router.get("/activity")
 def platform_activity(
-    _=Depends(superadmin_required),
+    _=Depends(platform_admin_required),
     db: Session = Depends(get_db),
 ):
     """Latest 100 audit log entries across all tenants."""
@@ -141,7 +141,7 @@ def platform_activity(
 
 @router.get("/system")
 def platform_system(
-    _=Depends(superadmin_required),
+    _=Depends(platform_admin_required),
     db: Session = Depends(get_db),
 ):
     """System health status for the SaaS operator."""
