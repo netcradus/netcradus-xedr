@@ -34,7 +34,9 @@ function CopyButton({ text }: { text: string }) {
 
 // ── Onboarding wizard ─────────────────────────────────────────────────────────
 
-const STEPS = ['Prerequisites', 'Install Agent', 'Verify']
+const STEPS = ['Prerequisites', 'Install Agent', 'Verify Connection']
+
+const POLL_INTERVAL_MS = 5000
 
 function AgentOnboardingModal({
   onClose,
@@ -47,32 +49,69 @@ function AgentOnboardingModal({
   const [info, setInfo] = useState<OnboardingInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [serverUrl, setServerUrl] = useState(window.location.origin.replace(':5173', ':8000'))
+
+  // Verification state
+  const [initialAgentIds, setInitialAgentIds] = useState<Set<number>>(new Set())
   const [verifying, setVerifying] = useState(false)
   const [verified, setVerified] = useState(false)
+  const [newAgent, setNewAgent] = useState<BackendAgent | null>(null)
+  const [lastChecked, setLastChecked] = useState<Date | null>(null)
+  const [pollTick, setPollTick] = useState(0)
 
+  // Load onboarding config + snapshot existing agent IDs on mount
   useEffect(() => {
-    fetchOnboardingInfo()
-      .then(setInfo)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetchOnboardingInfo(),
+      fetchAgents(),
+    ]).then(([inf, agents]) => {
+      setInfo(inf)
+      setInitialAgentIds(new Set(agents.map((a) => a.id)))
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const apiKey = info?.tenant_api_key ?? '<YOUR_TENANT_API_KEY>'
-  const linuxCmd = `python3 agent/main.py --server ${serverUrl} --tenant-api-key ${apiKey}`
-  const winCmd   = `python agent\\main.py --server ${serverUrl} --tenant-api-key ${apiKey}`
-  const pipCmd   = `pip install requests watchdog psutil`
+  // Auto-poll every 5 s while on the Verify step and not yet verified
+  useEffect(() => {
+    if (step !== 2 || verified) return
+    const id = setInterval(() => setPollTick((t) => t + 1), POLL_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [step, verified])
+
+  // Run a check whenever pollTick increments (auto) or handleVerify is called
+  useEffect(() => {
+    if (step !== 2 || verified || pollTick === 0) return
+    let cancelled = false
+    setVerifying(true)
+    fetchAgents().then((agents) => {
+      if (cancelled) return
+      setLastChecked(new Date())
+      const found = agents.find((a) => !initialAgentIds.has(a.id))
+      if (found) {
+        setNewAgent(found)
+        setVerified(true)
+      }
+    }).catch(() => {}).finally(() => { if (!cancelled) setVerifying(false) })
+    return () => { cancelled = true }
+  }, [pollTick, step, verified, initialAgentIds])
 
   async function handleVerify() {
     setVerifying(true)
     try {
       const agents = await fetchAgents()
-      if (agents.length > 0) {
+      setLastChecked(new Date())
+      const found = agents.find((a) => !initialAgentIds.has(a.id))
+      if (found) {
+        setNewAgent(found)
         setVerified(true)
       }
     } catch { /* ignore */ } finally {
       setVerifying(false)
     }
   }
+
+  const apiKey  = info?.tenant_api_key ?? '<YOUR_TENANT_API_KEY>'
+  const linuxCmd = `python3 agent/main.py --server ${serverUrl} --tenant-api-key ${apiKey}`
+  const winCmd   = `python agent\\main.py --server ${serverUrl} --tenant-api-key ${apiKey}`
+  const pipCmd   = `pip install requests watchdog psutil`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -87,9 +126,9 @@ function AgentOnboardingModal({
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-0 px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center px-6 py-4 border-b border-gray-100 shrink-0">
           {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center gap-0 flex-1">
+            <div key={s} className="flex items-center flex-1">
               <div className="flex items-center gap-2">
                 <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                   i < step ? 'bg-green-500 text-white' :
@@ -102,9 +141,7 @@ function AgentOnboardingModal({
                   {s}
                 </span>
               </div>
-              {i < STEPS.length - 1 && (
-                <div className="flex-1 mx-3 h-px bg-gray-200" />
-              )}
+              {i < STEPS.length - 1 && <div className="flex-1 mx-3 h-px bg-gray-200" />}
             </div>
           ))}
         </div>
@@ -117,6 +154,7 @@ function AgentOnboardingModal({
               <span className="text-sm">Loading configuration…</span>
             </div>
           ) : step === 0 ? (
+            // ── Step 0: Prerequisites ─────────────────────────────────────
             <div className="space-y-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -153,7 +191,7 @@ function AgentOnboardingModal({
                   {info?.tenant_api_key && <CopyButton text={info.tenant_api_key} />}
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  This key is unique to <strong>{info?.tenant_name}</strong>. Agents registered with it will appear in this workspace.
+                  Unique to <strong>{info?.tenant_name}</strong> — agents registered with it appear in this workspace only.
                 </p>
               </div>
 
@@ -169,6 +207,7 @@ function AgentOnboardingModal({
               </div>
             </div>
           ) : step === 1 ? (
+            // ── Step 1: Install ───────────────────────────────────────────
             <div className="space-y-5">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -197,41 +236,85 @@ function AgentOnboardingModal({
               </div>
 
               <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700">
-                The agent will register itself automatically on first run and send heartbeats every 15 seconds. It will appear in the Assets list within 30 seconds.
+                The agent registers itself automatically on first run and sends heartbeats every 15 seconds. It will appear in Assets within 30 seconds.
               </div>
             </div>
           ) : (
+            // ── Step 2: Verify ────────────────────────────────────────────
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Once the agent is running, it will appear here automatically. Click <strong>Check for Agents</strong> to refresh the list.
+                Start the agent on the target machine. This page polls every 5 seconds and will confirm automatically the moment a new agent connects.
               </p>
 
-              {verified ? (
-                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-4">
-                  <Check size={20} className="text-green-500 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-green-800">Agent detected!</p>
-                    <p className="text-xs text-green-600">At least one agent is registered in your workspace.</p>
+              {verified && newAgent ? (
+                // ── Success ───────────────────────────────────────────────
+                <div className="rounded-xl border border-green-200 bg-green-50 overflow-hidden">
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200">
+                    <ShieldCheck size={18} className="text-green-600 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">Agent verified and connected!</p>
+                      <p className="text-xs text-green-600">The new agent checked in successfully. You can now close this wizard.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-px bg-green-200">
+                    {[
+                      { label: 'Hostname', value: newAgent.hostname },
+                      { label: 'IP Address', value: newAgent.ip_address },
+                      { label: 'OS', value: newAgent.os_type },
+                      { label: 'Agent Version', value: newAgent.agent_version },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="bg-white px-4 py-2.5">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
+                        <p className="text-sm font-medium text-gray-800 mt-0.5">{value || '—'}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-4">
-                  <Loader2 size={18} className={`text-gray-400 shrink-0 ${verifying ? 'animate-spin' : ''}`} />
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Waiting for agent…</p>
-                    <p className="text-xs text-gray-400">Start the agent on the target machine, then check below.</p>
+                // ── Waiting ───────────────────────────────────────────────
+                <div>
+                  <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 mb-3">
+                    <div className="relative shrink-0">
+                      <div className="h-10 w-10 rounded-full border-2 border-blue-200 flex items-center justify-center">
+                        <Monitor size={18} className="text-gray-400" />
+                      </div>
+                      {verifying && (
+                        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center">
+                          <Loader2 size={10} className="text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">
+                        {verifying ? 'Checking for new agents…' : 'Waiting for agent connection'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {lastChecked
+                          ? `Last checked ${lastChecked.toLocaleTimeString()} · auto-checks every 5 s`
+                          : 'Will check automatically every 5 seconds'}
+                      </p>
+                    </div>
+                    <div className="ml-auto flex gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
                   </div>
+
+                  <button
+                    onClick={handleVerify}
+                    disabled={verifying}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    {verifying ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                    Check Now
+                  </button>
                 </div>
               )}
 
-              <button
-                onClick={handleVerify}
-                disabled={verifying}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                {verifying ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                Check for Agents
-              </button>
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700">
+                <strong>How it works:</strong> verification detects agents that were not present when you opened this wizard — existing agents do not count. The Done button unlocks once a new agent is confirmed.
+              </div>
             </div>
           )}
         </div>
@@ -246,11 +329,8 @@ function AgentOnboardingModal({
             Back
           </button>
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700"
-            >
-              Close
+            <button onClick={onClose} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700">
+              Cancel
             </button>
             {step < STEPS.length - 1 ? (
               <button
@@ -262,9 +342,16 @@ function AgentOnboardingModal({
             ) : (
               <button
                 onClick={() => { onDone(); onClose() }}
-                className="inline-flex items-center gap-2 text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={!verified}
+                title={verified ? 'Agent verified — close wizard' : 'Waiting for a new agent to connect…'}
+                className={`inline-flex items-center gap-2 text-sm px-4 py-2 rounded-lg transition-colors ${
+                  verified
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
               >
-                <Check size={14} /> Done
+                <Check size={14} />
+                {verified ? 'Done — View Agent' : 'Waiting for agent…'}
               </button>
             )}
           </div>
