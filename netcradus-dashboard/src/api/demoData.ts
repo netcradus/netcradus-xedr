@@ -62,18 +62,41 @@ const LINKED_ALERTS_3 = [DEMO_ALERTS[5], DEMO_ALERTS[7], DEMO_ALERTS[8]].map((a)
 }))
 
 const DEMO_INCIDENTS = [
-  { id: 1, title: 'Credential Dumping Attack Chain',      description: 'Multiple credential-dumping tools detected across domain controller and workstation. LSASS targeted via Mimikatz and encoded PowerShell dropper.', severity: 'Critical', status: 'Investigating', tenant_id: 9999, assigned_to: null, mitre_tactics: 'TA0006,TA0002',             alert_count: 3, affected_endpoints: 2, created_at: hAgo(3),   updated_at: hAgo(1),   resolved_at: null },
-  { id: 2, title: 'C2 Beaconing and Lateral Movement',   description: 'Endpoint established persistent outbound connection to port 4444 followed by PsExec-based lateral movement. IOC match confirmed.',                severity: 'High',     status: 'Open',         tenant_id: 9999, assigned_to: null, mitre_tactics: 'TA0011,TA0008',             alert_count: 3, affected_endpoints: 3, created_at: hAgo(7),   updated_at: hAgo(5),   resolved_at: null },
-  { id: 3, title: 'Multi-Stage Persistence Chain',       description: 'Registry Run key and Windows service created in sequence following suspicious file drop in Temp directory. Persistence chain successfully disrupted.', severity: 'Medium',   status: 'Resolved',     tenant_id: 9999, assigned_to: null, mitre_tactics: 'TA0003',                     alert_count: 3, affected_endpoints: 2, created_at: dAgo(1.5), updated_at: dAgo(0.5), resolved_at: dAgo(0.5) },
+  { id: 1, title: 'Credential Dumping Attack Chain',      description: 'Multiple credential-dumping tools detected across domain controller and workstation. LSASS targeted via Mimikatz and encoded PowerShell dropper.', severity: 'Critical', status: 'Investigating', tenant_id: 9999, assigned_to: null, mitre_tactics: 'TA0006,TA0002',  alert_count: 3, affected_endpoints: 2, root_cause: null, resolution_summary: null, containment_actions: null, lessons_learned: null, created_at: hAgo(3),   updated_at: hAgo(1),   resolved_at: null },
+  { id: 2, title: 'C2 Beaconing and Lateral Movement',   description: 'Endpoint established persistent outbound connection to port 4444 followed by PsExec-based lateral movement. IOC match confirmed.',                severity: 'High',     status: 'Open',         tenant_id: 9999, assigned_to: null, mitre_tactics: 'TA0011,TA0008', alert_count: 3, affected_endpoints: 3, root_cause: null, resolution_summary: null, containment_actions: null, lessons_learned: null, created_at: hAgo(7),   updated_at: hAgo(5),   resolved_at: null },
+  { id: 3, title: 'Multi-Stage Persistence Chain',       description: 'Registry Run key and Windows service created in sequence following suspicious file drop in Temp directory. Persistence chain successfully disrupted.', severity: 'Medium', status: 'Resolved',     tenant_id: 9999, assigned_to: null, mitre_tactics: 'TA0003',        alert_count: 3, affected_endpoints: 2, root_cause: 'Phishing email delivered macro-enabled document that dropped a stager into %TEMP%, then established persistence via Run key and service.', resolution_summary: 'Stager binary quarantined, Run key and service removed, affected accounts reset.', containment_actions: 'Quarantined C:\\Temp\\drop.exe on LINUX-WEB-01; deleted HKCU Run key entry; stopped and deleted "NetSvc32" service on WIN-SERVER-02.', lessons_learned: 'Enable macro blocking policy for Office suite. Add TEMP directory write alerting for non-installer processes.', created_at: dAgo(1.5), updated_at: dAgo(0.5), resolved_at: dAgo(0.5) },
+]
+
+const _demoNotes1 = [
+  { id: 101, user_name: 'Demo Admin', note_type: 'finding' as const,      content: 'Confirmed LSASS dump via Mimikatz sekurlsa::logonpasswords. Hash for DOMAIN\\Administrator captured — lateral movement risk is HIGH.', created_at: hAgo(2.5) },
+  { id: 102, user_name: 'Demo Admin', note_type: 'action_taken' as const,  content: 'Killed mimikatz.exe process on WIN-DC-01 via remote command. Process confirmed terminated.', created_at: hAgo(2.2) },
+  { id: 103, user_name: 'Jane Smith', note_type: 'ioc_ref' as const,       content: '185.220.101.42 — Tor exit node, confirmed C2 endpoint. Added to block list.', created_at: hAgo(1.8) },
+]
+
+const _demoNotes3 = [
+  { id: 301, user_name: 'Bob Chen',   note_type: 'finding' as const,      content: 'Stager binary located at C:\\Temp\\drop.exe — SHA256 matches known LockBit dropper in VirusTotal (72 engines).', created_at: dAgo(1.4) },
+  { id: 302, user_name: 'Demo Admin', note_type: 'action_taken' as const,  content: 'File quarantined via agent command. Service "NetSvc32" stopped and deleted on WIN-SERVER-02.', created_at: dAgo(1.2) },
+  { id: 303, user_name: 'Demo Admin', note_type: 'note' as const,          content: 'All affected user accounts have been reset. No evidence of data exfiltration found in outbound traffic logs.', created_at: dAgo(0.8) },
+]
+
+const _demoEvidence1 = [
+  { id: 201, added_by_name: 'Demo Admin', title: 'mimikatz.exe command output',     evidence_type: 'command_output' as const, content: '  .#####.   mimikatz 2.2.0 (x64)\n  .## ^ ##.  "A La Vie, A L\'Amour"\n  ## / \\  ##  /*** Benjamin DELPY\nsekurlsa::logonpasswords\nAuthentication Id : 0 ; 12345 (00000000:00003039)\n[00000003] Primary\n * Username : Administrator\n * Domain   : CORP\n * NTLM     : aad3b435b51404eeaad3b435b51404ee', created_at: hAgo(2.4) },
+  { id: 202, added_by_name: 'Jane Smith', title: '185.220.101.42',                  evidence_type: 'ioc_ref' as const,        content: '185.220.101.42', created_at: hAgo(1.9) },
+  { id: 203, added_by_name: 'Demo Admin', title: 'LSASS access event log snippet',  evidence_type: 'log_snippet' as const,    content: 'TimeCreated: 2026-06-30T08:23:14Z\nEventId: 10\nSourceImage: C:\\Windows\\Temp\\svhost.exe\nTargetImage: C:\\Windows\\System32\\lsass.exe\nGrantedAccess: 0x1fffff\nCallTrace: C:\\Windows\\SYSTEM32\\ntdll.dll', created_at: hAgo(2.1) },
+]
+
+const _demoEvidence3 = [
+  { id: 301, added_by_name: 'Bob Chen',   title: 'C:\\Temp\\drop.exe SHA256',        evidence_type: 'ioc_ref' as const,        content: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', created_at: dAgo(1.3) },
+  { id: 302, added_by_name: 'Demo Admin', title: 'Registry Run key entry',           evidence_type: 'artifact' as const,       content: null, created_at: dAgo(1.1) },
 ]
 
 const DEMO_INCIDENT_DETAILS = [
-  { ...DEMO_INCIDENTS[0], alerts: LINKED_ALERTS_1 },
-  { ...DEMO_INCIDENTS[1], alerts: LINKED_ALERTS_2 },
-  { ...DEMO_INCIDENTS[2], alerts: LINKED_ALERTS_3 },
+  { ...DEMO_INCIDENTS[0], alerts: LINKED_ALERTS_1, notes: _demoNotes1, evidence: _demoEvidence1 },
+  { ...DEMO_INCIDENTS[1], alerts: LINKED_ALERTS_2, notes: [], evidence: [] },
+  { ...DEMO_INCIDENTS[2], alerts: LINKED_ALERTS_3, notes: _demoNotes3, evidence: _demoEvidence3 },
 ]
 
-const DEMO_INCIDENT_STATS = { total: 3, open: 1, investigating: 1, resolved: 1, critical: 1, high: 1 }
+const DEMO_INCIDENT_STATS = { total: 3, open: 1, investigating: 1, contained: 0, resolved: 1, critical: 1, high: 1 }
 
 // ── IOCs ──────────────────────────────────────────────────────────────────────
 
@@ -189,33 +212,79 @@ const DEMO_ORG = { id: 9999, name: 'Netcradus Demo', api_key: 'demo-api-key-****
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
-  // All mutations silently succeed in demo mode
+  const base = path.split('?')[0].replace(/\/+$/, '')
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
   if (method !== 'GET') {
-    if (path.includes('/toggle')) return { enabled: true, id: 0 } as unknown as T
-    if (path.includes('/resolve')) return {} as unknown as T
-    if (path.includes('/support/tickets')) return { id: 1, status: 'Open', message: 'Your ticket has been submitted. Our team will review it shortly.' } as unknown as T
+    if (base.includes('/toggle')) return { enabled: true, id: 0 } as unknown as T
+    if (base.includes('/support/tickets')) return { id: 1, status: 'Open', message: 'Your ticket has been submitted. Our team will review it shortly.' } as unknown as T
+
+    // POST /incidents/{id}/notes → return a demo InvestigationNote
+    const notePost = base.match(/^\/incidents\/(\d+)\/notes$/)
+    if (notePost) {
+      return {
+        id: Date.now(), user_name: 'Demo Admin', note_type: 'note',
+        content: '(demo) Note saved.', created_at: new Date().toISOString(),
+      } as unknown as T
+    }
+
+    // POST /incidents/{id}/evidence → return a demo EvidenceItem
+    const evPost = base.match(/^\/incidents\/(\d+)\/evidence$/)
+    if (evPost) {
+      return {
+        id: Date.now(), added_by_name: 'Demo Admin', title: '(demo) Evidence',
+        evidence_type: 'note', content: null, created_at: new Date().toISOString(),
+      } as unknown as T
+    }
+
+    // PUT /incidents/{id}/resolve → return the matched incident as Resolved
+    const resolveMatch = base.match(/^\/incidents\/(\d+)\/resolve$/)
+    if (resolveMatch) {
+      const id = parseInt(resolveMatch[1])
+      const inc = DEMO_INCIDENTS.find((i) => i.id === id) ?? DEMO_INCIDENTS[0]
+      return { ...inc, status: 'Resolved', resolved_at: new Date().toISOString() } as unknown as T
+    }
+
+    // PUT /incidents/{id}/status
+    const statusMatch = base.match(/^\/incidents\/(\d+)\/status$/)
+    if (statusMatch) {
+      const id = parseInt(statusMatch[1])
+      const inc = DEMO_INCIDENTS.find((i) => i.id === id) ?? DEMO_INCIDENTS[0]
+      return { ...inc } as unknown as T
+    }
+
     return {} as unknown as T
   }
 
-  const base = path.split('?')[0].replace(/\/+$/, '')
+  // ── GET: Exact matches ────────────────────────────────────────────────────
+  if (base === '/alerts/stats')         return DEMO_ALERT_STATS     as unknown as T
+  if (base === '/incidents/stats')      return DEMO_INCIDENT_STATS   as unknown as T
+  if (base === '/users/me')             return DEMO_ME               as unknown as T
+  if (base === '/threat-feeds/config')  return DEMO_FEED_CONFIG      as unknown as T
+  if (base === '/notifications/config') return DEMO_NOTIF_CONFIG     as unknown as T
+  if (base === '/reports/summary')      return DEMO_REPORT_SUMMARY   as unknown as T
+  if (base === '/org/info')             return DEMO_ORG              as unknown as T
 
-  // ── Exact matches ─────────────────────────────────────────────────────────
-  if (base === '/alerts/stats')       return DEMO_ALERT_STATS    as unknown as T
-  if (base === '/incidents/stats')    return DEMO_INCIDENT_STATS  as unknown as T
-  if (base === '/users/me')           return DEMO_ME              as unknown as T
-  if (base === '/threat-feeds/config')return DEMO_FEED_CONFIG     as unknown as T
-  if (base === '/notifications/config') return DEMO_NOTIF_CONFIG  as unknown as T
-  if (base === '/reports/summary')    return DEMO_REPORT_SUMMARY  as unknown as T
-  if (base === '/org/info')           return DEMO_ORG             as unknown as T
+  // ── GET: Incident sub-paths (must be checked before the /incidents/{id} match) ──
+  const notesMatch    = base.match(/^\/incidents\/(\d+)\/notes$/)
+  const evidenceMatch = base.match(/^\/incidents\/(\d+)\/evidence$/)
+  if (notesMatch) {
+    const id = parseInt(notesMatch[1])
+    return ((DEMO_INCIDENT_DETAILS.find((i) => i.id === id) ?? DEMO_INCIDENT_DETAILS[0]).notes) as unknown as T
+  }
+  if (evidenceMatch) {
+    const id = parseInt(evidenceMatch[1])
+    return ((DEMO_INCIDENT_DETAILS.find((i) => i.id === id) ?? DEMO_INCIDENT_DETAILS[0]).evidence) as unknown as T
+  }
 
-  // ── Specific incident detail ───────────────────────────────────────────────
+  // ── GET: Specific incident detail ─────────────────────────────────────────
   const incidentMatch = base.match(/^\/incidents\/(\d+)$/)
   if (incidentMatch) {
     const id = parseInt(incidentMatch[1])
     return (DEMO_INCIDENT_DETAILS.find((i) => i.id === id) ?? DEMO_INCIDENT_DETAILS[0]) as unknown as T
   }
 
-  // ── Prefix matches ────────────────────────────────────────────────────────
+  // ── GET: Prefix matches ───────────────────────────────────────────────────
   if (base.startsWith('/alerts'))          return DEMO_ALERTS           as unknown as T
   if (base.startsWith('/agents'))          return DEMO_AGENTS           as unknown as T
   if (base.startsWith('/incidents'))       return DEMO_INCIDENTS        as unknown as T

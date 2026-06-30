@@ -1,7 +1,24 @@
 export type BackendSeverity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Informational'
 export type AlertStatus = 'Open' | 'Resolved'
 export type AgentStatus = 'Online' | 'Offline'
-export type IncidentStatus = 'Open' | 'Investigating' | 'Resolved'
+export type IncidentStatus = 'Open' | 'Investigating' | 'Contained' | 'Resolved'
+
+export interface InvestigationNote {
+  id: number
+  user_name: string | null
+  note_type: 'note' | 'finding' | 'action_taken' | 'ioc_ref'
+  content: string
+  created_at: string
+}
+
+export interface EvidenceItem {
+  id: number
+  added_by_name: string | null
+  title: string
+  evidence_type: 'log_snippet' | 'ioc_ref' | 'artifact' | 'network_capture' | 'command_output' | 'note'
+  content: string | null
+  created_at: string
+}
 
 export interface BackendAlert {
   id: number
@@ -126,6 +143,10 @@ export interface BackendIncident {
   mitre_tactics: string | null
   alert_count: number
   affected_endpoints: number
+  root_cause: string | null
+  resolution_summary: string | null
+  containment_actions: string | null
+  lessons_learned: string | null
   created_at: string
   updated_at: string
   resolved_at: string | null
@@ -133,12 +154,15 @@ export interface BackendIncident {
 
 export interface BackendIncidentDetail extends BackendIncident {
   alerts: LinkedAlert[]
+  notes: InvestigationNote[]
+  evidence: EvidenceItem[]
 }
 
 export interface IncidentStats {
   total: number
   open: number
   investigating: number
+  contained: number
   resolved: number
   critical: number
   high: number

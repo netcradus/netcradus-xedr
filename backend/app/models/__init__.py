@@ -6,6 +6,8 @@ from app.models.command import Command
 from app.models.file_telemetry import FileTelemetry
 from app.models.incident import Incident
 from app.models.incident_alert import IncidentAlert
+from app.models.investigation_note import InvestigationNote
+from app.models.evidence import Evidence
 from app.models.ioc import IOC
 from app.models.network_telemetry import NetworkTelemetry
 from app.models.persistence_telemetry import PersistenceTelemetry
@@ -21,6 +23,8 @@ __all__ = [
     "FileTelemetry",
     "Incident",
     "IncidentAlert",
+    "InvestigationNote",
+    "Evidence",
     "IOC",
     "NetworkTelemetry",
     "PersistenceTelemetry",

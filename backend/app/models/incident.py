@@ -19,6 +19,12 @@ class Incident(Base):
     alert_count = Column(Integer, default=1)
     affected_endpoints = Column(Integer, default=1)  # distinct agent count
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    # Resolution fields (filled on close)
+    root_cause          = Column(Text, nullable=True)
+    resolution_summary  = Column(Text, nullable=True)
+    containment_actions = Column(Text, nullable=True)
+    lessons_learned     = Column(Text, nullable=True)
+
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    updated_at  = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)

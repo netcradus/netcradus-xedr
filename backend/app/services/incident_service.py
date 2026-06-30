@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.models.incident import Incident
 from app.models.incident_alert import IncidentAlert
+from app.models.investigation_note import InvestigationNote
+from app.models.evidence import Evidence
 from app.models.alert import Alert
 from app.models.agent import Agent
 
@@ -156,6 +158,7 @@ def get_incident_stats(db: Session, tenant_id: int) -> dict:
         "total": len(all_incidents),
         "open": sum(1 for i in all_incidents if i.status == "Open"),
         "investigating": sum(1 for i in all_incidents if i.status == "Investigating"),
+        "contained": sum(1 for i in all_incidents if i.status == "Contained"),
         "resolved": sum(1 for i in all_incidents if i.status == "Resolved"),
         "critical": sum(1 for i in all_incidents if i.severity == "Critical"),
         "high": sum(1 for i in all_incidents if i.severity == "High"),
@@ -190,21 +193,135 @@ def get_incident_alerts(db: Session, incident_id: int) -> list:
 
 
 def update_status(db: Session, incident: Incident, new_status: str) -> Incident:
-    allowed = {"Open", "Investigating", "Resolved"}
+    allowed = {"Open", "Investigating", "Contained", "Resolved"}
     if new_status not in allowed:
         raise ValueError(f"Invalid status: {new_status}")
 
     incident.status = new_status
     incident.updated_at = datetime.utcnow()
 
-    if new_status == "Resolved":
+    if new_status == "Resolved" and not incident.resolved_at:
         incident.resolved_at = datetime.utcnow()
-    elif incident.resolved_at:
+    elif new_status != "Resolved":
         incident.resolved_at = None
 
     db.commit()
     db.refresh(incident)
     return incident
+
+
+def resolve_incident(
+    db: Session,
+    incident: Incident,
+    root_cause: str | None,
+    resolution_summary: str | None,
+    containment_actions: str | None,
+    lessons_learned: str | None,
+) -> Incident:
+    incident.status = "Resolved"
+    incident.resolved_at = datetime.utcnow()
+    incident.updated_at = datetime.utcnow()
+    if root_cause is not None:
+        incident.root_cause = root_cause
+    if resolution_summary is not None:
+        incident.resolution_summary = resolution_summary
+    if containment_actions is not None:
+        incident.containment_actions = containment_actions
+    if lessons_learned is not None:
+        incident.lessons_learned = lessons_learned
+    db.commit()
+    db.refresh(incident)
+    return incident
+
+
+# ── Investigation notes ────────────────────────────────────────────────────────
+
+def list_notes(db: Session, incident_id: int) -> list:
+    return (
+        db.query(InvestigationNote)
+        .filter(InvestigationNote.incident_id == incident_id)
+        .order_by(InvestigationNote.created_at.asc())
+        .all()
+    )
+
+
+def add_note(
+    db: Session,
+    incident_id: int,
+    user_id: int,
+    user_name: str,
+    note_type: str,
+    content: str,
+) -> InvestigationNote:
+    note = InvestigationNote(
+        incident_id=incident_id,
+        user_id=user_id,
+        user_name=user_name,
+        note_type=note_type,
+        content=content,
+    )
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+def delete_note(db: Session, note_id: int, incident_id: int) -> bool:
+    note = db.query(InvestigationNote).filter(
+        InvestigationNote.id == note_id,
+        InvestigationNote.incident_id == incident_id,
+    ).first()
+    if not note:
+        return False
+    db.delete(note)
+    db.commit()
+    return True
+
+
+# ── Evidence ───────────────────────────────────────────────────────────────────
+
+def list_evidence(db: Session, incident_id: int) -> list:
+    return (
+        db.query(Evidence)
+        .filter(Evidence.incident_id == incident_id)
+        .order_by(Evidence.created_at.asc())
+        .all()
+    )
+
+
+def add_evidence(
+    db: Session,
+    incident_id: int,
+    user_id: int,
+    user_name: str,
+    title: str,
+    evidence_type: str,
+    content: str | None,
+) -> Evidence:
+    ev = Evidence(
+        incident_id=incident_id,
+        added_by_id=user_id,
+        added_by_name=user_name,
+        title=title,
+        evidence_type=evidence_type,
+        content=content,
+    )
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+def delete_evidence(db: Session, evidence_id: int, incident_id: int) -> bool:
+    ev = db.query(Evidence).filter(
+        Evidence.id == evidence_id,
+        Evidence.incident_id == incident_id,
+    ).first()
+    if not ev:
+        return False
+    db.delete(ev)
+    db.commit()
+    return True
 
 
 def backfill_incidents(db: Session, tenant_id: int) -> int:
