@@ -1,6 +1,10 @@
 import type { AuthUser, LoginPayload, SignupPayload, AuthResult } from '@/types/auth.types'
 import type { BackendUser } from '@/types/api.types'
-import { BASE_URL, apiFetch, setToken, clearToken } from '@/api/client'
+import { BASE_URL, apiFetch, setToken, clearToken, setDemoMode } from '@/api/client'
+import { DEMO_ME } from '@/api/demoData'
+
+const DEMO_EMAIL = 'demo@netcradus.com'
+const DEMO_PASS  = 'Demo@1234'
 
 const SESSION_KEY = 'netcrad_session'
 
@@ -38,6 +42,27 @@ export function getSession(): AuthUser | null {
 export async function apiLogin(
   payload: LoginPayload
 ): Promise<AuthResult & { user?: AuthUser; mfaRequired?: boolean; mfaSession?: string }> {
+  // Demo mode: bypass backend entirely
+  if (payload.email === DEMO_EMAIL && payload.password === DEMO_PASS) {
+    const parts = DEMO_ME.name.trim().split(' ')
+    const firstName = parts[0] ?? 'Demo'
+    const lastName  = parts.slice(1).join(' ') || 'Admin'
+    const user: AuthUser = {
+      id: String(DEMO_ME.id),
+      firstName,
+      lastName,
+      email: DEMO_ME.email,
+      company: DEMO_ME.tenant.name,
+      initials: `${firstName[0]}${lastName[0]}`.toUpperCase(),
+      role: DEMO_ME.role.name,
+      emailVerified: DEMO_ME.email_verified,
+      mfaEnabled: DEMO_ME.mfa_enabled,
+    }
+    setDemoMode(true)
+    saveSession(user)
+    return { success: true, user }
+  }
+
   try {
     const form = new URLSearchParams()
     form.append('username', payload.email)

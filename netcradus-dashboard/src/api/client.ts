@@ -1,7 +1,8 @@
 export const BASE_URL = 'http://127.0.0.1:8000'
 
-const TOKEN_KEY = 'netcrad_token'
+const TOKEN_KEY   = 'netcrad_token'
 const SESSION_KEY = 'netcrad_session'
+const DEMO_KEY    = 'netcrad_demo'
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -14,6 +15,16 @@ export function setToken(token: string): void {
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(SESSION_KEY)
+  localStorage.removeItem(DEMO_KEY)
+}
+
+export function isDemoMode(): boolean {
+  return localStorage.getItem(DEMO_KEY) === '1'
+}
+
+export function setDemoMode(on: boolean): void {
+  if (on) localStorage.setItem(DEMO_KEY, '1')
+  else    localStorage.removeItem(DEMO_KEY)
 }
 
 // Prevents multiple concurrent refresh attempts
@@ -34,7 +45,13 @@ async function _tryRefresh(): Promise<boolean> {
   }
 }
 
+import { resolveDemoResponse } from '@/api/demoData'
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  if (isDemoMode()) {
+    return Promise.resolve(resolveDemoResponse<T>(path, (options.method ?? 'GET').toUpperCase()))
+  }
+
   const token = getToken()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
