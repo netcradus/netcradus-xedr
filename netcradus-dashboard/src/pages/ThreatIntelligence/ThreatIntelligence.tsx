@@ -66,7 +66,8 @@ const EMPTY_FORM: CreateIOCPayload = {
 // ── Feed result card ──────────────────────────────────────────────────────────
 
 function FeedResultCard({ result }: { result: FeedResult }) {
-  const isVT = result.source === 'VirusTotal'
+  const isVT  = result.source === 'VirusTotal'
+  const isOTX = result.source === 'AlienVault OTX'
 
   if (result.error) {
     return (
@@ -80,7 +81,7 @@ function FeedResultCard({ result }: { result: FeedResult }) {
     )
   }
 
-  if (result.status === 'not found') {
+  if (result.status === 'not found' || (isOTX && result.pulse_count === 0)) {
     return (
       <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
         <div className="flex items-center gap-2 mb-1">
@@ -88,6 +89,61 @@ function FeedResultCard({ result }: { result: FeedResult }) {
           <span className="text-sm font-medium text-gray-600">{result.source}</span>
         </div>
         <p className="text-xs text-gray-400">Not found in database</p>
+      </div>
+    )
+  }
+
+  // OTX result card
+  if (isOTX) {
+    return (
+      <div className="rounded-lg border border-orange-100 bg-white p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe size={14} className="text-orange-500" />
+            <span className="text-sm font-semibold text-gray-800">{result.source}</span>
+          </div>
+          <span className={`text-sm font-bold ${result.is_malicious ? 'text-red-600' : 'text-green-600'}`}>
+            {result.is_malicious ? 'Malicious' : 'Clean'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <span className="text-gray-400">Threat pulses</span>
+          <span className="text-gray-700 font-medium">{result.pulse_count ?? 0}</span>
+        </div>
+
+        {result.adversaries && result.adversaries.length > 0 && (
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Adversaries</p>
+            <div className="flex flex-wrap gap-1">
+              {result.adversaries.map((a) => (
+                <span key={a} className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full">{a}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {result.malware_families && result.malware_families.length > 0 && (
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Malware families</p>
+            <div className="flex flex-wrap gap-1">
+              {result.malware_families.map((m) => (
+                <span key={m} className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">{m}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {result.pulses && result.pulses.length > 0 && (
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Top pulses</p>
+            <ul className="space-y-0.5">
+              {result.pulses.map((p) => (
+                <li key={p} className="text-xs text-gray-600 truncate">• {p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     )
   }
@@ -165,10 +221,12 @@ function FeedResultCard({ result }: { result: FeedResult }) {
 
 function FeedsTab({ canWrite }: { canWrite: boolean }) {
   const [config, setConfig] = useState<ThreatFeedConfig | null>(null)
-  const [vtKey, setVtKey] = useState('')
-  const [abKey, setAbKey] = useState('')
-  const [showVt, setShowVt] = useState(false)
-  const [showAb, setShowAb] = useState(false)
+  const [vtKey,  setVtKey]  = useState('')
+  const [abKey,  setAbKey]  = useState('')
+  const [otxKey, setOtxKey] = useState('')
+  const [showVt,  setShowVt]  = useState(false)
+  const [showAb,  setShowAb]  = useState(false)
+  const [showOtx, setShowOtx] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [cfgError, setCfgError] = useState<string | null>(null)
@@ -186,6 +244,7 @@ function FeedsTab({ canWrite }: { canWrite: boolean }) {
         setConfig(c)
         setVtKey(c.virustotal_api_key ?? '')
         setAbKey(c.abuseipdb_api_key ?? '')
+        setOtxKey(c.otx_api_key ?? '')
       })
       .catch(() => {})
   }, [canWrite])
@@ -197,6 +256,7 @@ function FeedsTab({ canWrite }: { canWrite: boolean }) {
       const updated = await updateFeedConfig({
         virustotal_api_key: vtKey || null,
         abuseipdb_api_key: abKey || null,
+        otx_api_key: otxKey || null,
       })
       setConfig(updated)
       setSaved(true)
@@ -226,10 +286,11 @@ function FeedsTab({ canWrite }: { canWrite: boolean }) {
   return (
     <div className="space-y-6">
       {/* Status strip */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         {[
-          { name: 'VirusTotal', active: config?.has_virustotal ?? false, desc: 'Hash, IP, domain & URL reputation' },
-          { name: 'AbuseIPDB', active: config?.has_abuseipdb ?? false, desc: 'IP address abuse confidence scoring' },
+          { name: 'VirusTotal',     active: config?.has_virustotal ?? false, desc: 'Hash, IP, domain & URL reputation' },
+          { name: 'AbuseIPDB',      active: config?.has_abuseipdb  ?? false, desc: 'IP address abuse confidence scoring' },
+          { name: 'AlienVault OTX', active: config?.has_otx         ?? false, desc: 'IP, domain, hash & URL threat pulse data' },
         ].map(({ name, active, desc }) => (
           <div key={name} className={`rounded-xl border p-4 flex items-center gap-3 ${
             active ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-gray-50'
@@ -311,6 +372,31 @@ function FeedsTab({ canWrite }: { canWrite: boolean }) {
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-1">Free tier: 1,000 checks/day. IPv4 and IPv6 only.</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1.5">
+                AlienVault OTX API Key
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showOtx ? 'text' : 'password'}
+                    value={otxKey}
+                    onChange={(e) => setOtxKey(e.target.value)}
+                    placeholder="Enter your OTX API key"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOtx((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showOtx ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Free account at otx.alienvault.com. Supports hashes, IPs, domains, URLs.</p>
             </div>
           </div>
 

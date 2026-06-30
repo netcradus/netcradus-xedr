@@ -91,6 +91,64 @@ def _lookup_abuseipdb(api_key: str, ip: str):
     }
 
 
+# ── AlienVault OTX ───────────────────────────────────────────────────────────
+
+_OTX_BASE = "https://otx.alienvault.com/api/v1"
+_OTX_SUPPORTED = {"SHA256", "MD5", "IPv4", "IPv6", "Domain", "URL"}
+
+_OTX_SECTION = {
+    "SHA256": ("file",   lambda v: v),
+    "MD5":    ("file",   lambda v: v),
+    "IPv4":   ("IPv4",   lambda v: v),
+    "IPv6":   ("IPv6",   lambda v: v),
+    "Domain": ("domain", lambda v: v),
+    "URL":    ("url",    lambda v: v),
+}
+
+
+def _lookup_otx(api_key: str, ioc_type: str, value: str):
+    if ioc_type not in _OTX_SECTION:
+        return None, None
+
+    section_name, transform = _OTX_SECTION[ioc_type]
+    url = f"{_OTX_BASE}/indicators/{section_name}/{transform(value)}/general"
+
+    r = http_client.get(
+        url,
+        headers={"X-OTX-API-KEY": api_key},
+        timeout=10,
+    )
+    if r.status_code == 404:
+        return 0, {"source": "AlienVault OTX", "pulse_count": 0, "is_malicious": False}
+    r.raise_for_status()
+
+    data = r.json()
+    pulse_info = data.get("pulse_info", {})
+    pulses     = pulse_info.get("pulses", [])
+    count      = pulse_info.get("count", len(pulses))
+
+    # Collect unique adversaries and malware families across pulses
+    adversaries      = list({p.get("adversary") for p in pulses if p.get("adversary")})[:5]
+    malware_families = list({
+        mf.get("display_name", mf.get("id", ""))
+        for p in pulses
+        for mf in p.get("malware_families", [])
+        if mf
+    })[:5]
+    tags = list({tag for p in pulses for tag in p.get("tags", [])})[:8]
+    top_pulses = [p.get("name", "") for p in pulses[:3] if p.get("name")]
+
+    return count, {
+        "source":           "AlienVault OTX",
+        "pulse_count":      count,
+        "is_malicious":     count > 0,
+        "adversaries":      adversaries,
+        "malware_families": malware_families,
+        "tags":             tags,
+        "pulses":           top_pulses,
+    }
+
+
 # ── Unified lookup ────────────────────────────────────────────────────────────
 
 def lookup_ioc(db: Session, tenant_id: int, ioc_type: str, value: str) -> dict:
@@ -118,6 +176,17 @@ def lookup_ioc(db: Session, tenant_id: int, ioc_type: str, value: str) -> dict:
                 vt_score = score
         except Exception as exc:
             feeds_results.append({"source": "AbuseIPDB", "error": str(exc)})
+
+    if config and config.otx_api_key and ioc_type in _OTX_SUPPORTED:
+        try:
+            pulse_count, info = _lookup_otx(config.otx_api_key, ioc_type, value)
+            if info:
+                feeds_results.append(info)
+                # Use pulse count as a malicious signal if no VT score yet
+                if vt_score is None and pulse_count is not None:
+                    vt_score = min(pulse_count * 10, 100)
+        except Exception as exc:
+            feeds_results.append({"source": "AlienVault OTX", "error": str(exc)})
 
     return {"vt_score": vt_score, "feeds": feeds_results}
 

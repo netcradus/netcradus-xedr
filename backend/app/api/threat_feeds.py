@@ -19,18 +19,32 @@ router = APIRouter(prefix="/threat-feeds", tags=["Threat Feeds"])
 _MASK = "••••••••"
 
 
+def _config_response(config) -> "FeedConfigResponse":
+    return FeedConfigResponse(
+        virustotal_api_key=_MASK if config.virustotal_api_key else None,
+        abuseipdb_api_key =_MASK if config.abuseipdb_api_key  else None,
+        otx_api_key       =_MASK if config.otx_api_key         else None,
+        has_virustotal    =bool(config.virustotal_api_key),
+        has_abuseipdb     =bool(config.abuseipdb_api_key),
+        has_otx           =bool(config.otx_api_key),
+    )
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class FeedConfigResponse(BaseModel):
     virustotal_api_key: Optional[str] = None
-    abuseipdb_api_key: Optional[str] = None
+    abuseipdb_api_key:  Optional[str] = None
+    otx_api_key:        Optional[str] = None
     has_virustotal: bool = False
-    has_abuseipdb: bool = False
+    has_abuseipdb:  bool = False
+    has_otx:        bool = False
 
 
 class UpdateFeedConfigRequest(BaseModel):
     virustotal_api_key: Optional[str] = None
-    abuseipdb_api_key: Optional[str] = None
+    abuseipdb_api_key:  Optional[str] = None
+    otx_api_key:        Optional[str] = None
 
 
 class LookupRequest(BaseModel):
@@ -45,12 +59,7 @@ def get_feed_config(
         current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
     config = get_or_create_config(db, current_user.tenant_id)
-    return FeedConfigResponse(
-        virustotal_api_key=_MASK if config.virustotal_api_key else None,
-        abuseipdb_api_key=_MASK if config.abuseipdb_api_key else None,
-        has_virustotal=bool(config.virustotal_api_key),
-        has_abuseipdb=bool(config.abuseipdb_api_key),
-    )
+    return _config_response(config)
 
 
 @router.put("/config", response_model=FeedConfigResponse)
@@ -63,14 +72,11 @@ def update_feed_config(
         config.virustotal_api_key = request.virustotal_api_key or None
     if request.abuseipdb_api_key is not None and request.abuseipdb_api_key != _MASK:
         config.abuseipdb_api_key = request.abuseipdb_api_key or None
+    if request.otx_api_key is not None and request.otx_api_key != _MASK:
+        config.otx_api_key = request.otx_api_key or None
     db.commit()
     db.refresh(config)
-    return FeedConfigResponse(
-        virustotal_api_key=_MASK if config.virustotal_api_key else None,
-        abuseipdb_api_key=_MASK if config.abuseipdb_api_key else None,
-        has_virustotal=bool(config.virustotal_api_key),
-        has_abuseipdb=bool(config.abuseipdb_api_key),
-    )
+    return _config_response(config)
 
 
 @router.post("/lookup")

@@ -65,23 +65,34 @@ export interface BackendIOC {
 
 export interface ThreatFeedConfig {
   virustotal_api_key: string | null
-  abuseipdb_api_key: string | null
+  abuseipdb_api_key:  string | null
+  otx_api_key:        string | null
   has_virustotal: boolean
-  has_abuseipdb: boolean
+  has_abuseipdb:  boolean
+  has_otx:        boolean
 }
 
 export interface FeedResult {
   source: string
+  // VirusTotal
   score_pct?: number
   malicious?: number
   total_engines?: number
   reputation?: number
   tags?: string[]
+  // AbuseIPDB
   confidence?: number
   country?: string | null
   isp?: string | null
   total_reports?: number
   is_tor?: boolean
+  // AlienVault OTX
+  pulse_count?: number
+  is_malicious?: boolean
+  adversaries?: string[]
+  malware_families?: string[]
+  pulses?: string[]
+  // Common
   status?: string
   error?: string
 }
