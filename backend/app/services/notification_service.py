@@ -1,4 +1,4 @@
-"""
+﻿"""
 Notification service — builds payloads and dispatches channels.
 
 notify_new_alert / notify_new_incident check config synchronously (one cheap
@@ -71,7 +71,7 @@ def _slack_alert_payload(title: str, severity: str, agent: str, mitre: str, desc
                 "blocks": [
                     {
                         "type": "header",
-                        "text": {"type": "plain_text", "text": f"{emoji} SentryXDR — {severity} Alert"},
+                        "text": {"type": "plain_text", "text": f"{emoji} NetcradXDR — {severity} Alert"},
                     },
                     {
                         "type": "section",
@@ -87,7 +87,7 @@ def _slack_alert_payload(title: str, severity: str, agent: str, mitre: str, desc
                     {
                         "type": "context",
                         "elements": [
-                            {"type": "mrkdwn", "text": f"SentryXDR · {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"}
+                            {"type": "mrkdwn", "text": f"NetcradXDR · {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"}
                         ],
                     },
                 ],
@@ -106,7 +106,7 @@ def _slack_incident_payload(title: str, severity: str, alert_count: int, endpoin
                 "blocks": [
                     {
                         "type": "header",
-                        "text": {"type": "plain_text", "text": f"{emoji} SentryXDR — New Incident"},
+                        "text": {"type": "plain_text", "text": f"{emoji} NetcradXDR — New Incident"},
                     },
                     {
                         "type": "section",
@@ -123,7 +123,7 @@ def _slack_incident_payload(title: str, severity: str, alert_count: int, endpoin
                     {
                         "type": "context",
                         "elements": [
-                            {"type": "mrkdwn", "text": f"SentryXDR · {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"}
+                            {"type": "mrkdwn", "text": f"NetcradXDR · {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"}
                         ],
                     },
                 ],
@@ -223,7 +223,7 @@ def _alert_email_html(title: str, severity: str, agent: str, mitre: str, descrip
     return f"""
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <div style="background:{colour};color:#fff;padding:16px 24px;border-radius:8px 8px 0 0">
-        <h2 style="margin:0">{severity} Alert — SentryXDR</h2>
+        <h2 style="margin:0">{severity} Alert — NetcradXDR</h2>
       </div>
       <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
         <h3 style="margin-top:0;color:#111827">{title}</h3>
@@ -235,7 +235,7 @@ def _alert_email_html(title: str, severity: str, agent: str, mitre: str, descrip
           <tr><td style="padding:8px 0;color:#6b7280">Time</td><td style="color:#111827">{datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</td></tr>
         </table>
       </div>
-      <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px">SentryXDR by Netcradus</p>
+      <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px">NetcradXDR by Netcradus</p>
     </div>
     """
 
@@ -245,7 +245,7 @@ def _incident_email_html(title: str, severity: str, alert_count: int, endpoints:
     return f"""
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <div style="background:{colour};color:#fff;padding:16px 24px;border-radius:8px 8px 0 0">
-        <h2 style="margin:0">New Incident — SentryXDR</h2>
+        <h2 style="margin:0">New Incident — NetcradXDR</h2>
       </div>
       <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
         <h3 style="margin-top:0;color:#111827">{title}</h3>
@@ -256,7 +256,7 @@ def _incident_email_html(title: str, severity: str, alert_count: int, endpoints:
           <tr><td style="padding:8px 0;color:#6b7280">Time</td><td style="color:#111827">{datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</td></tr>
         </table>
       </div>
-      <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px">SentryXDR by Netcradus</p>
+      <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px">NetcradXDR by Netcradus</p>
     </div>
     """
 
@@ -283,7 +283,7 @@ def _dispatch_notify_alert(tenant_id: int, title: str, severity: str,
                     _send_teams(cfg.teams_webhook_url,
                                 _teams_alert_payload(title, severity, agent_hostname, mitre, description))
                 if cfg.email_to:
-                    _send_email(cfg, f"[SentryXDR] {severity} Alert: {title}",
+                    _send_email(cfg, f"[NetcradXDR] {severity} Alert: {title}",
                                 _alert_email_html(title, severity, agent_hostname, mitre, description))
             except Exception as e:
                 print(f"[notify_alert fallback] {e}")
@@ -314,7 +314,7 @@ def _dispatch_notify_incident(tenant_id: int, title: str, severity: str,
                     _send_teams(cfg.teams_webhook_url,
                                 _teams_incident_payload(title, severity, alert_count, endpoints))
                 if cfg.email_to:
-                    _send_email(cfg, f"[SentryXDR] New Incident: {title}",
+                    _send_email(cfg, f"[NetcradXDR] New Incident: {title}",
                                 _incident_email_html(title, severity, alert_count, endpoints))
             except Exception as e:
                 print(f"[notify_incident fallback] {e}")
@@ -374,7 +374,7 @@ def send_test_notification(db: Session, tenant_id: int) -> dict:
 
     test_payload = _slack_alert_payload(
         "Test Alert", "High", "TEST-HOST-01", "T1059",
-        "This is a test notification from SentryXDR.",
+        "This is a test notification from NetcradXDR.",
     )
 
     if cfg.slack_webhook_url:
@@ -389,7 +389,7 @@ def send_test_notification(db: Session, tenant_id: int) -> dict:
     if cfg.teams_webhook_url:
         try:
             payload = _teams_alert_payload("Test Alert", "High", "TEST-HOST-01", "T1059",
-                                           "This is a test notification from SentryXDR.")
+                                           "This is a test notification from NetcradXDR.")
             r = http.post(cfg.teams_webhook_url, json=payload, timeout=5)
             result["teams"] = "ok" if r.ok else f"HTTP {r.status_code}"
         except Exception as e:
@@ -399,9 +399,9 @@ def send_test_notification(db: Session, tenant_id: int) -> dict:
 
     if cfg.email_to:
         try:
-            _send_email(cfg, "[SentryXDR] Test Notification",
+            _send_email(cfg, "[NetcradXDR] Test Notification",
                         _alert_email_html("Test Alert", "High", "TEST-HOST-01", "T1059",
-                                          "This is a test notification from SentryXDR."))
+                                          "This is a test notification from NetcradXDR."))
             result["email"] = "dispatched"
         except Exception as e:
             result["email"] = str(e)

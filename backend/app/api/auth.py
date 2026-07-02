@@ -1,4 +1,4 @@
-import io
+﻿import io
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -355,7 +355,7 @@ def mfa_setup(
 
     secret = pyotp.random_base32()
     totp = pyotp.TOTP(secret)
-    uri = totp.provisioning_uri(name=current_user.email, issuer_name="SentryXDR")
+    uri = totp.provisioning_uri(name=current_user.email, issuer_name="NetcradXDR")
 
     # Save secret (not yet active — user must verify first via /mfa/enable)
     current_user.totp_secret = secret

@@ -1,9 +1,9 @@
-services:
+﻿services:
 
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: sentryxdr
+      POSTGRES_DB: netcradxdr
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:

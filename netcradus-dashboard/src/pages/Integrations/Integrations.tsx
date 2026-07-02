@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type FormEvent } from 'react'
+﻿import { useEffect, useState, useCallback, type FormEvent } from 'react'
 import {
   Hash,
   MessageSquare,
@@ -289,7 +289,7 @@ function EmailCard({ cfg, isAdmin, testResult, onSave }: EmailCardProps) {
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">From Address</label>
           <input type="email" value={from_} onChange={(e) => setFrom(e.target.value)}
-            disabled={!isAdmin} placeholder="SentryXDR <alerts@company.com>"
+            disabled={!isAdmin} placeholder="NetcradXDR <alerts@company.com>"
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400" />
         </div>
 
@@ -493,7 +493,7 @@ export default function Integrations() {
         {/* ── Header row ── */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            Configure where SentryXDR sends alerts. All channels fire simultaneously when a rule matches.
+            Configure where NetcradXDR sends alerts. All channels fire simultaneously when a rule matches.
           </p>
           {isAdmin && (
             <button

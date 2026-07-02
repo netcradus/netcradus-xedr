@@ -1,4 +1,4 @@
-from app.core.celery_app import celery_app
+﻿from app.core.celery_app import celery_app
 
 
 @celery_app.task(bind=True, max_retries=2, default_retry_delay=60)
@@ -40,7 +40,7 @@ def notify_alert_task(
                         _teams_alert_payload(title, severity, agent_hostname, mitre, description))
         if cfg.email_to:
             _send_email(cfg,
-                        f"[SentryXDR] {severity} Alert: {title}",
+                        f"[NetcradXDR] {severity} Alert: {title}",
                         _alert_email_html(title, severity, agent_hostname, mitre, description))
     except Exception as exc:
         raise self.retry(exc=exc)
@@ -78,7 +78,7 @@ def notify_incident_task(
                         _teams_incident_payload(title, severity, alert_count, endpoints))
         if cfg.email_to:
             _send_email(cfg,
-                        f"[SentryXDR] New Incident: {title}",
+                        f"[NetcradXDR] New Incident: {title}",
                         _incident_email_html(title, severity, alert_count, endpoints))
     except Exception as exc:
         raise self.retry(exc=exc)

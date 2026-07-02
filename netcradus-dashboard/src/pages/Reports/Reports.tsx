@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+﻿import { useEffect, useState, useCallback } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -13,7 +13,7 @@ import { fetchReportSummary } from '@/api/reportsApi'
 import type { ReportSummary } from '@/types/api.types'
 
 // ── Compliance framework data ─────────────────────────────────────────────────
-// Coverage is based on which detection categories SentryXDR actively monitors.
+// Coverage is based on which detection categories NetcradXDR actively monitors.
 
 const FRAMEWORKS = [
   {
@@ -95,7 +95,7 @@ function formatDate(iso: string) {
 
 function downloadCSV(data: ReportSummary) {
   const rows: string[][] = [
-    ['SentryXDR Security Report', '', ''],
+    ['NetcradXDR Security Report', '', ''],
     ['Generated', new Date().toISOString(), ''],
     ['Period', 'Last 30 days', ''],
     ['', '', ''],
@@ -129,7 +129,7 @@ function downloadCSV(data: ReportSummary) {
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
-  a.download = `sentryxdr-report-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `netcradxdr-report-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -140,7 +140,7 @@ function downloadJSON(data: ReportSummary) {
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
-  a.download = `sentryxdr-report-${new Date().toISOString().slice(0, 10)}.json`
+  a.download = `netcradxdr-report-${new Date().toISOString().slice(0, 10)}.json`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -330,7 +330,7 @@ function ComplianceTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
-        Coverage is derived from SentryXDR's active monitoring capabilities. Green = monitored and covered. Gray = capability gap.
+        Coverage is derived from NetcradXDR's active monitoring capabilities. Green = monitored and covered. Gray = capability gap.
       </p>
       {FRAMEWORKS.map((fw) => {
         const covered = fw.controls.filter((c) => c.covered).length

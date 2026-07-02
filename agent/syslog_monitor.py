@@ -1,5 +1,5 @@
-"""
-Syslog collector for SentryXDR agent.
+﻿"""
+Syslog collector for NetcradXDR agent.
 
 Tails standard syslog files on Linux/macOS and ships new lines to the backend.
 Supports RFC 3164 syslog format and common multi-line journal formats.

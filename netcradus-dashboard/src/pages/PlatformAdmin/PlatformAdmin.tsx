@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+﻿import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -1265,7 +1265,7 @@ export default function PlatformAdmin() {
             </div>
             <div>
               <p className="text-sm font-bold tracking-wide text-white">PLATFORM ADMIN</p>
-              <p className="text-[10px] text-white/40 leading-tight">SentryXDR Operator Console</p>
+              <p className="text-[10px] text-white/40 leading-tight">NetcradXDR Operator Console</p>
             </div>
           </div>
         </div>

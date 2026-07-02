@@ -1,5 +1,5 @@
-"""
-Windows Event Log collector for SentryXDR agent.
+﻿"""
+Windows Event Log collector for NetcradXDR agent.
 
 Reads Security, System, and Application channels and ships new events to the
 backend. Uses the pywin32 EvtLog API when available; falls back silently on

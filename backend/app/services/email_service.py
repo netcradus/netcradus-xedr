@@ -1,4 +1,4 @@
-import smtplib
+﻿import smtplib
 import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -39,7 +39,7 @@ def send_verification_email(to: str, token: str) -> None:
     url = f"{settings.app_url}/verify-email?token={token}"
     html = f"""
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px">
-      <h2 style="color:#1e3a5f">Verify your SentryXDR email</h2>
+      <h2 style="color:#1e3a5f">Verify your NetcradXDR email</h2>
       <p>Thanks for signing up! Click the button below to verify your email address.</p>
       <a href="{url}" style="display:inline-block;margin:16px 0;padding:12px 24px;
          background:#3366cc;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">
@@ -49,7 +49,7 @@ def send_verification_email(to: str, token: str) -> None:
       <p style="color:#bbb;font-size:12px">Or paste: {url}</p>
     </div>
     """
-    _send_async(to, "Verify your SentryXDR email", html)
+    _send_async(to, "Verify your NetcradXDR email", html)
 
 
 def send_password_reset_email(to: str, token: str) -> None:
@@ -57,7 +57,7 @@ def send_password_reset_email(to: str, token: str) -> None:
     html = f"""
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px">
       <h2 style="color:#1e3a5f">Reset your password</h2>
-      <p>We received a request to reset your SentryXDR password.</p>
+      <p>We received a request to reset your NetcradXDR password.</p>
       <a href="{url}" style="display:inline-block;margin:16px 0;padding:12px 24px;
          background:#3366cc;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">
         Reset Password
@@ -66,4 +66,4 @@ def send_password_reset_email(to: str, token: str) -> None:
       <p style="color:#bbb;font-size:12px">Or paste: {url}</p>
     </div>
     """
-    _send_async(to, "Reset your SentryXDR password", html)
+    _send_async(to, "Reset your NetcradXDR password", html)

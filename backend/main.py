@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+﻿from dotenv import load_dotenv
 load_dotenv()  # loads backend/.env before any config is read
 
 from fastapi import FastAPI, APIRouter
@@ -40,7 +40,7 @@ from app.services.detection_rule_seed import seed_detection_rules
 import threading
 import time
 
-app = FastAPI(title="SentryXDR", version="1.0.0")
+app = FastAPI(title="NetcradXDR", version="1.0.0")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -97,7 +97,7 @@ def startup():
 
 @app.get("/")
 def root():
-    return {"message": "SentryXDR Backend Running"}
+    return {"message": "NetcradXDR Backend Running"}
 
 
 def _offline_monitor():

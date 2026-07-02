@@ -1,4 +1,4 @@
-"""
+﻿"""
 Thin wrapper around the Groq API (OpenAI-compatible).
 Uses requests — no extra dependency needed.
 Set GROQ_API_KEY in the environment before starting the server.
@@ -45,7 +45,7 @@ def _call_groq(system: str, user: str, max_tokens: int = 1024) -> str:
 
 # ── Feature 1: Incident summary ───────────────────────────────────────────────
 
-_SUMMARY_SYSTEM = """You are a cybersecurity analyst AI assistant embedded in SentryXDR, a commercial XDR platform.
+_SUMMARY_SYSTEM = """You are a cybersecurity analyst AI assistant embedded in NetcradXDR, a commercial XDR platform.
 You generate concise, analyst-grade incident summaries for security operations teams.
 Be direct and specific. Avoid filler phrases.
 
@@ -104,7 +104,7 @@ Generate the incident summary JSON."""
 
 # ── Feature 2: Natural-language query parser ──────────────────────────────────
 
-_NL_QUERY_SYSTEM = """You are a query parser for SentryXDR, a security XDR platform.
+_NL_QUERY_SYSTEM = """You are a query parser for NetcradXDR, a security XDR platform.
 Convert the user's natural-language query into structured JSON filters.
 
 Available resources: "alerts", "incidents"
@@ -142,7 +142,7 @@ def parse_nl_query(query: str) -> dict:
 
 # ── Feature 3: Playbook recommendation ───────────────────────────────────────
 
-_PLAYBOOK_SYSTEM = """You are a senior incident responder and SOC lead embedded in SentryXDR.
+_PLAYBOOK_SYSTEM = """You are a senior incident responder and SOC lead embedded in NetcradXDR.
 Generate a structured, actionable response playbook for the given MITRE ATT&CK techniques.
 
 Reference available SOAR commands: kill_process, isolate_host, block_ip, quarantine_file, restore_host
@@ -182,7 +182,7 @@ Generate a response playbook."""
             "steps": [
                 {
                     "phase": "Identification",
-                    "action": "Review all correlated alerts and affected endpoints in SentryXDR",
+                    "action": "Review all correlated alerts and affected endpoints in NetcradXDR",
                     "rationale": "Understand full scope before acting",
                     "soar_command": None,
                 },

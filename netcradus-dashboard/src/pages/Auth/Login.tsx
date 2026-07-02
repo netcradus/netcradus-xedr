@@ -1,4 +1,4 @@
-import { useState, type FormEvent, useEffect } from 'react'
+﻿import { useState, type FormEvent, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import AuthLayout from './AuthLayout'
@@ -100,7 +100,7 @@ export default function Login() {
           </div>
           <h2 className="text-[26px] font-bold text-gray-900 mb-1">Authenticator code</h2>
           <p className="text-sm text-gray-500 text-center">
-            Open your authenticator app and enter the 6-digit code for <strong>SentryXDR</strong>.
+            Open your authenticator app and enter the 6-digit code for <strong>NetcradXDR</strong>.
           </p>
         </div>
 

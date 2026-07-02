@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react'
 import AuthLayout from './AuthLayout'
@@ -72,7 +72,7 @@ export default function ResetPassword() {
   return (
     <AuthLayout
       headline={<>Set a new<br /><span className="text-brand-blue">password</span></>}
-      description="Choose a strong password for your SentryXDR account."
+      description="Choose a strong password for your NetcradXDR account."
       features={[
         'At least 8 characters',
         'Mix uppercase and lowercase',

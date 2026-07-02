@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+﻿import { useEffect, useState, useCallback } from 'react'
 import { ClipboardList, RefreshCw, AlertTriangle, Clock, User, Filter } from 'lucide-react'
 import Topbar from '@/components/layout/Topbar/Topbar'
 import Card from '@/components/ui/Card/Card'
@@ -139,7 +139,7 @@ export default function AuditLogs() {
               <ClipboardList size={28} className="text-gray-200 mx-auto mb-2" />
               <p className="text-sm text-gray-400">No audit events yet.</p>
               <p className="text-xs text-gray-300 mt-1">
-                Events are recorded as your team takes actions in SentryXDR.
+                Events are recorded as your team takes actions in NetcradXDR.
               </p>
             </div>
           ) : (

@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import signal
 import subprocess
@@ -54,7 +54,7 @@ def _block_ip(ip):
         proc = subprocess.run(
             [
                 "netsh", "advfirewall", "firewall", "add", "rule",
-                f"name=SentryXDR_Block_{ip}",
+                f"name=NetcradXDR_Block_{ip}",
                 "dir=out", "action=block", f"remoteip={ip}",
             ],
             capture_output=True, text=True,

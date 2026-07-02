@@ -1,9 +1,9 @@
-from celery import Celery
+﻿from celery import Celery
 from celery.schedules import crontab
 from app.core.config import settings
 
 celery_app = Celery(
-    "sentryxdr",
+    "netcradxdr",
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=[

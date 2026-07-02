@@ -1,6 +1,6 @@
-# SentryXDR Backend
+﻿# NetcradXDR Backend
 
-SentryXDR is a unified Endpoint Detection and Response (EDR), SIEM and XDR platform.
+NetcradXDR is a unified Endpoint Detection and Response (EDR), SIEM and XDR platform.
 
 ---
 
@@ -68,7 +68,7 @@ SentryXDR is a unified Endpoint Detection and Response (EDR), SIEM and XDR platf
 ### Clone Repository
 
 ```bash
-git clone https://github.com/yourrepo/SentryXDR.git
+git clone https://github.com/yourrepo/NetcradXDR.git
 ```
 
 ### Create Virtual Environment

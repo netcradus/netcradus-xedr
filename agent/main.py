@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 import platform
 import socket
@@ -27,12 +27,12 @@ with open(CONFIG_PATH, "r") as f:
     config = json.load(f)
 
 SERVER_URL = os.getenv(
-    "SENTRYXDR_SERVER_URL",
+    "NETCRADXDR_SERVER_URL",
     config["server_url"]
 )
 
 AGENT_TOKEN = os.getenv(
-    "SENTRYXDR_AGENT_TOKEN",
+    "NETCRADXDR_AGENT_TOKEN",
     config.get("agent_token", "")
 )
 
@@ -60,7 +60,7 @@ def register_agent_if_needed():
             "os_type": platform.system(),
             "agent_version": "1.0.0",
             "registration_token": os.getenv(
-                "SENTRYXDR_AGENT_REGISTRATION_TOKEN",
+                "NETCRADXDR_AGENT_REGISTRATION_TOKEN",
                 config.get("registration_token", "")
             )
         },
@@ -117,7 +117,7 @@ def _collect_logs():
 
 def main():
 
-    print("===== SentryXDR Agent Started =====")
+    print("===== NetcradXDR Agent Started =====")
 
     register_agent_if_needed()
 
@@ -146,7 +146,7 @@ def main():
 
     except KeyboardInterrupt:
 
-        print("\nStopping SentryXDR Agent...")
+        print("\nStopping NetcradXDR Agent...")
         observer.stop()
         observer.join()
         print("Agent stopped successfully.")

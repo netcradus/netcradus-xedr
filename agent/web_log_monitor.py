@@ -1,5 +1,5 @@
-"""
-Web log collector for SentryXDR agent.
+﻿"""
+Web log collector for NetcradXDR agent.
 
 Tails IIS (W3C Extended Log Format), Apache, and Nginx (Combined/Common Log
 Format) log files and ships new lines to the backend.

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+﻿import { useEffect, useState, useCallback } from 'react'
 import {
   Monitor, Wifi, WifiOff, RefreshCw, AlertTriangle, Clock,
   ShieldOff, ShieldCheck, Plus, Copy, Check, X, Terminal,
@@ -163,7 +163,7 @@ function AgentOnboardingModal({
                 </div>
                 <ul className="text-sm text-gray-600 space-y-1 ml-5 list-disc">
                   <li>Python 3.8 or newer</li>
-                  <li>Network access to this SentryXDR server</li>
+                  <li>Network access to this NetcradXDR server</li>
                   <li>Admin / root privileges (for network isolation commands)</li>
                 </ul>
               </div>

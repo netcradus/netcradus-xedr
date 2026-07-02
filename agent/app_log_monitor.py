@@ -1,5 +1,5 @@
-"""
-Generic application log collector for SentryXDR agent.
+﻿"""
+Generic application log collector for NetcradXDR agent.
 
 Tails any configured log file, auto-detects severity from common log patterns,
 and ships new lines to the backend.

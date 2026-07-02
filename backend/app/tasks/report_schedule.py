@@ -1,4 +1,4 @@
-"""
+﻿"""
 Scheduled PDF report tasks.
 
 Three periodic tasks (driven by celery beat):
@@ -207,12 +207,12 @@ def _email_report(
     }
     label    = label_map.get(report_type, report_type)
     filename = f"{report_type}_{period_start.strftime('%Y%m%d')}.pdf"
-    subject  = f"[SentryXDR] {label} — {period_start.strftime('%Y-%m-%d')}"
+    subject  = f"[NetcradXDR] {label} — {period_start.strftime('%Y-%m-%d')}"
 
     for addr in [r.strip() for r in recipients_csv.split(",") if r.strip()]:
         try:
             msg = MIMEMultipart()
-            msg["From"]    = getattr(settings, "smtp_from", "noreply@sentryxdr.io")
+            msg["From"]    = getattr(settings, "smtp_from", "noreply@netcradxdr.io")
             msg["To"]      = addr
             msg["Subject"] = subject
             msg.attach(MIMEText(
