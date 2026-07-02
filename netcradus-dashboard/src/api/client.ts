@@ -1,4 +1,4 @@
-export const BASE_URL = 'http://127.0.0.1:8000'
+export const BASE_URL = 'http://127.0.0.1:8000/api/v1'
 
 const TOKEN_KEY   = 'netcrad_token'
 const SESSION_KEY = 'netcrad_session'

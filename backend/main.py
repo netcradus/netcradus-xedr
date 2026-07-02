@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()  # loads backend/.env before any config is read
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -55,27 +55,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Health stays unversioned — infra probes (load balancers, k8s) expect /health at root
 app.include_router(health_router)
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(admin_router)
-app.include_router(agents_router)
-app.include_router(telemetry_router)
-app.include_router(alerts_router)
-app.include_router(commands_router)
-app.include_router(iocs_router)
-app.include_router(incidents_router)
-app.include_router(settings_router)
-app.include_router(notifications_router)
-app.include_router(reports_router)
-app.include_router(audit_logs_router)
-app.include_router(threat_feeds_router)
-app.include_router(ai_router)
-app.include_router(super_admin_router)
-app.include_router(platform_admin_router)
-app.include_router(support_router)
-app.include_router(detection_rules_router)
-app.include_router(hunt_router)
+
+# All API routes live under /api/v1 — bump to /api/v2 here when needed
+v1 = APIRouter(prefix="/api/v1")
+v1.include_router(auth_router)
+v1.include_router(users_router)
+v1.include_router(admin_router)
+v1.include_router(agents_router)
+v1.include_router(telemetry_router)
+v1.include_router(alerts_router)
+v1.include_router(commands_router)
+v1.include_router(iocs_router)
+v1.include_router(incidents_router)
+v1.include_router(settings_router)
+v1.include_router(notifications_router)
+v1.include_router(reports_router)
+v1.include_router(audit_logs_router)
+v1.include_router(threat_feeds_router)
+v1.include_router(ai_router)
+v1.include_router(super_admin_router)
+v1.include_router(platform_admin_router)
+v1.include_router(support_router)
+v1.include_router(detection_rules_router)
+v1.include_router(hunt_router)
+app.include_router(v1)
 
 
 @app.on_event("startup")
