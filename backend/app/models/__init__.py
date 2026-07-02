@@ -15,6 +15,8 @@ from app.models.process_telemetry import ProcessTelemetry
 from app.models.role import Role
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.models.scheduled_report import ScheduledReportConfig
+from app.models.generated_report import GeneratedReport
 
 __all__ = [
     "Agent",
@@ -34,4 +36,6 @@ __all__ = [
     "User",
     "AuditLog",
     "NotificationConfig",
+    "ScheduledReportConfig",
+    "GeneratedReport",
 ]

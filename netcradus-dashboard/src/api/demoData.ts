@@ -272,6 +272,28 @@ const DEMO_HUNT_PERSISTENCE = {
   ],
 }
 
+// ── Scheduled Report mock data ────────────────────────────────────────────────
+
+const DEMO_SCHEDULED_CONFIGS = [
+  { report_type: 'daily_soc',          enabled: true,  recipients: 'soc@netcradus.com',           last_run_at: hAgo(18), updated_at: dAgo(7) },
+  { report_type: 'monthly_compliance', enabled: true,  recipients: 'ciso@netcradus.com,audit@netcradus.com', last_run_at: dAgo(5), updated_at: dAgo(30) },
+  { report_type: 'weekly_exec',        enabled: false, recipients: null,                            last_run_at: null,     updated_at: dAgo(14) },
+]
+
+const DEMO_REPORT_HISTORY = {
+  total: 6,
+  offset: 0,
+  limit: 20,
+  items: [
+    { id: 1, report_type: 'daily_soc',          period_start: dAgo(1),  period_end: hAgo(0),  file_size: 41230, generated_at: hAgo(18), triggered_by: 'schedule', status: 'done',    error: null },
+    { id: 2, report_type: 'weekly_exec',         period_start: dAgo(7),  period_end: dAgo(0),  file_size: 63820, generated_at: dAgo(1),  triggered_by: 'manual',   status: 'done',    error: null },
+    { id: 3, report_type: 'monthly_compliance',  period_start: dAgo(30), period_end: dAgo(0),  file_size: 97105, generated_at: dAgo(5),  triggered_by: 'schedule', status: 'done',    error: null },
+    { id: 4, report_type: 'daily_soc',           period_start: dAgo(2),  period_end: dAgo(1),  file_size: 38944, generated_at: dAgo(1),  triggered_by: 'schedule', status: 'done',    error: null },
+    { id: 5, report_type: 'daily_soc',           period_start: dAgo(3),  period_end: dAgo(2),  file_size: 40112, generated_at: dAgo(2),  triggered_by: 'schedule', status: 'done',    error: null },
+    { id: 6, report_type: 'daily_soc',           period_start: dAgo(4),  period_end: dAgo(3),  file_size: null,  generated_at: dAgo(3),  triggered_by: 'schedule', status: 'failed',  error: 'SMTP connection refused' },
+  ],
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
@@ -316,6 +338,18 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
       return { ...inc } as unknown as T
     }
 
+    // PUT /reports/scheduled/{report_type}
+    const schedPutMatch = base.match(/^\/reports\/scheduled\/(.+)$/)
+    if (schedPutMatch) {
+      return { report_type: schedPutMatch[1], enabled: true, recipients: null, updated_at: new Date().toISOString() } as unknown as T
+    }
+
+    // POST /reports/trigger/{report_type}
+    const triggerMatch = base.match(/^\/reports\/trigger\/(.+)$/)
+    if (triggerMatch) {
+      return { status: 'accepted', report_type: triggerMatch[1], tenant_id: 9999 } as unknown as T
+    }
+
     return {} as unknown as T
   }
 
@@ -325,8 +359,10 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   if (base === '/users/me')             return DEMO_ME               as unknown as T
   if (base === '/threat-feeds/config')  return DEMO_FEED_CONFIG      as unknown as T
   if (base === '/notifications/config') return DEMO_NOTIF_CONFIG     as unknown as T
-  if (base === '/reports/summary')      return DEMO_REPORT_SUMMARY   as unknown as T
-  if (base === '/org/info')             return DEMO_ORG              as unknown as T
+  if (base === '/reports/summary')    return DEMO_REPORT_SUMMARY    as unknown as T
+  if (base === '/reports/scheduled')  return DEMO_SCHEDULED_CONFIGS as unknown as T
+  if (base === '/reports/history')    return DEMO_REPORT_HISTORY    as unknown as T
+  if (base === '/org/info')           return DEMO_ORG               as unknown as T
 
   // ── GET: Incident sub-paths (must be checked before the /incidents/{id} match) ──
   const notesMatch    = base.match(/^\/incidents\/(\d+)\/notes$/)
