@@ -17,6 +17,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.scheduled_report import ScheduledReportConfig
 from app.models.generated_report import GeneratedReport
+from app.models.log_telemetry import LogTelemetry
 
 __all__ = [
     "Agent",
@@ -38,4 +39,5 @@ __all__ = [
     "NotificationConfig",
     "ScheduledReportConfig",
     "GeneratedReport",
+    "LogTelemetry",
 ]

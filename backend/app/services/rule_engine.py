@@ -82,6 +82,18 @@ PERSISTENCE_FIELDS = {
     "persistence_type": lambda e: e.persistence_type,
 }
 
+LOG_FIELDS = {
+    "log_source":   lambda e: e.log_source,
+    "log_message":  lambda e: e.log_message,
+    "raw_message":  lambda e: e.raw_message,
+    "severity":     lambda e: e.severity,
+    "username":     lambda e: e.username,
+    "source_ip":    lambda e: e.source_ip,
+    "hostname":     lambda e: e.hostname,
+    "process_name": lambda e: e.process_name,
+    "event_id":     lambda e: str(e.event_id) if e.event_id is not None else "",
+}
+
 
 # ── Rule fetching ─────────────────────────────────────────────────────────────
 
@@ -161,6 +173,23 @@ def evaluate_persistence_rules(db: Session, entry, agent_id: int, tenant_id: int
                 f"[Rule: {rule.name}] "
                 f"{rule.field} {rule.operator} '{rule.value}' — "
                 f"matched on persistence entry '{entry.entry_name}'"
+            )
+            create_alert_if_not_exists(
+                db, rule.name, desc, rule.severity,
+                rule.mitre_technique or "", agent_id,
+            )
+
+
+def evaluate_log_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    for rule in _get_rules(db, "log", tenant_id):
+        extractor = LOG_FIELDS.get(rule.field)
+        if not extractor:
+            continue
+        if _match(extractor(entry), rule.operator, rule.value):
+            desc = (
+                f"[Rule: {rule.name}] "
+                f"{rule.field} {rule.operator} '{rule.value}' — "
+                f"matched in {entry.log_source} log"
             )
             create_alert_if_not_exists(
                 db, rule.name, desc, rule.severity,

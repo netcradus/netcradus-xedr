@@ -31,6 +31,9 @@ from app.services.telemetry_service import (
     save_persistence
 )
 
+from app.schemas.log_schema import LogTelemetryRequest
+from app.services.log_service import save_logs
+
 router = APIRouter(
     prefix="/telemetry",
     tags=["Telemetry"]
@@ -142,3 +145,19 @@ def persistence_telemetry(
     return {
         "status": "success"
     }
+
+
+@router.post("/logs")
+def log_telemetry(
+    data: LogTelemetryRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Ingest log telemetry from syslog, Windows Event Log, IIS, Apache, Nginx,
+    or application log files. Entries are stored and run through threat
+    detection and custom rule evaluation.
+    """
+    success = save_logs(db, data)
+    if not success:
+        return {"status": "invalid agent"}
+    return {"status": "success"}

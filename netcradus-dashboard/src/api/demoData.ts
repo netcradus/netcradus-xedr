@@ -272,6 +272,26 @@ const DEMO_HUNT_PERSISTENCE = {
   ],
 }
 
+// ── Log Telemetry mock data ───────────────────────────────────────────────────
+
+const DEMO_LOG_TELEMETRY = {
+  total: 12,
+  items: [
+    { id: 1,  agent_id: 1, log_source: 'wineventlog', severity: 'critical', event_id: 1102, hostname: 'WIN-DC-01',     username: 'Administrator', source_ip: null,              log_message: 'EventID=1102 | Source=Microsoft-Windows-Eventlog | User=Administrator', timestamp: hAgo(1) },
+    { id: 2,  agent_id: 2, log_source: 'wineventlog', severity: 'high',     event_id: 4625, hostname: 'WIN-WORKST-01', username: 'jsmith',         source_ip: '185.220.101.42',  log_message: 'EventID=4625 | Source=Microsoft-Windows-Security-Auditing | User=jsmith | IP=185.220.101.42', timestamp: hAgo(2) },
+    { id: 3,  agent_id: 1, log_source: 'wineventlog', severity: 'high',     event_id: 7045, hostname: 'WIN-DC-01',     username: null,             source_ip: null,              log_message: 'EventID=7045 | Source=Service Control Manager | ServiceName=NetSvc32 | ImagePath=C:\\Windows\\Temp\\svc.exe', timestamp: hAgo(3) },
+    { id: 4,  agent_id: 1, log_source: 'wineventlog', severity: 'high',     event_id: 4672, hostname: 'WIN-DC-01',     username: 'svc_backup',     source_ip: null,              log_message: 'EventID=4672 | Source=Microsoft-Windows-Security-Auditing | User=svc_backup', timestamp: hAgo(4) },
+    { id: 5,  agent_id: 3, log_source: 'syslog',      severity: 'error',    event_id: null, hostname: 'LINUX-WEB-01',  username: 'root',           source_ip: '10.0.0.55',       log_message: 'Failed password for root from 10.0.0.55 port 54321 ssh2', timestamp: hAgo(4.5) },
+    { id: 6,  agent_id: 3, log_source: 'syslog',      severity: 'warning',  event_id: null, hostname: 'LINUX-WEB-01',  username: 'deploy',         source_ip: null,              log_message: 'sudo: deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/bin/bash', timestamp: hAgo(5) },
+    { id: 7,  agent_id: 3, log_source: 'syslog',      severity: 'critical', event_id: null, hostname: 'LINUX-WEB-01',  username: 'root',           source_ip: null,              log_message: 'pam_unix(sshd:session): session opened for user root by (uid=0)', timestamp: hAgo(5.5) },
+    { id: 8,  agent_id: 3, log_source: 'nginx',       severity: 'warning',  event_id: null, hostname: 'LINUX-WEB-01',  username: null,             source_ip: '192.168.1.200',   log_message: 'GET /admin/../etc/passwd', timestamp: hAgo(6) },
+    { id: 9,  agent_id: 3, log_source: 'apache',      severity: 'warning',  event_id: null, hostname: 'LINUX-WEB-01',  username: null,             source_ip: '192.168.1.200',   log_message: "GET /search?q=1'+UNION+SELECT+null,username,password+FROM+users--", timestamp: hAgo(6.5) },
+    { id: 10, agent_id: 3, log_source: 'nginx',       severity: 'info',     event_id: null, hostname: 'LINUX-WEB-01',  username: null,             source_ip: '45.33.32.156',    log_message: 'GET /robots.txt', timestamp: hAgo(7) },
+    { id: 11, agent_id: 5, log_source: 'application', severity: 'critical', event_id: null, hostname: 'WIN-SERVER-02', username: null,             source_ip: null,              log_message: 'FATAL: Unhandled exception in payment module — NullReferenceException at PaymentService.Process()', timestamp: hAgo(8) },
+    { id: 12, agent_id: 5, log_source: 'application', severity: 'error',    event_id: null, hostname: 'WIN-SERVER-02', username: null,             source_ip: null,              log_message: 'ERROR: DB connection failed — password=Sup3rS3cr3t! stored in config', timestamp: hAgo(9) },
+  ],
+}
+
 // ── Scheduled Report mock data ────────────────────────────────────────────────
 
 const DEMO_SCHEDULED_CONFIGS = [
@@ -401,6 +421,9 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   if (base === '/hunt/ip')          return DEMO_HUNT_IP          as unknown as T
   if (base === '/hunt/domain')      return DEMO_HUNT_DOMAIN      as unknown as T
   if (base === '/hunt/persistence') return DEMO_HUNT_PERSISTENCE as unknown as T
+
+  // ── GET: Log telemetry ────────────────────────────────────────────────────
+  if (base === '/telemetry/logs' || base.startsWith('/telemetry/logs')) return DEMO_LOG_TELEMETRY as unknown as T
 
   return [] as unknown as T
 }
