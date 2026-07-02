@@ -20,6 +20,7 @@ from app.services.ioc_service import (
     update_ioc
 )
 from app.services.enrichment_service import enrich_ioc_background
+from app.tasks.enrichment import sync_iocs_task
 
 router = APIRouter(
     prefix="/iocs",
@@ -156,6 +157,18 @@ def update_ioc_endpoint(
         )
 
     return ioc
+
+
+@router.post("/sync", status_code=202)
+def sync_iocs_endpoint(
+        current_user: User = Depends(admin_required),
+        db: Session = Depends(get_db)):
+    """
+    Enqueue a background task to enrich all un-enriched IOCs for this tenant.
+    Returns 202 immediately; enrichment runs in Celery workers.
+    """
+    sync_iocs_task.delay(current_user.tenant_id)
+    return {"status": "accepted", "tenant_id": current_user.tenant_id}
 
 
 @router.delete(

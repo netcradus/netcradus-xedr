@@ -1,10 +1,15 @@
 """
-Notification service — dispatches alerts to Slack, Teams, and Email.
-All functions are fire-and-forget: exceptions are printed, never raised.
+Notification service — builds payloads and dispatches channels.
+
+notify_new_alert / notify_new_incident check config synchronously (one cheap
+indexed DB read) then hand off all I/O (HTTP to Slack/Teams, SMTP) to
+Celery workers via notify_alert_task / notify_incident_task.
+
+send_test_notification keeps the HTTP calls synchronous because it returns
+per-channel results to the caller immediately.
 """
 
 import smtplib
-import threading
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -14,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.models.notification_config import NotificationConfig
 
-# ── Config helpers ────────────────────────────────────────────────────────────
+# ── Config helper ─────────────────────────────────────────────────────────────
 
 def get_or_create_config(db: Session, tenant_id: int) -> NotificationConfig:
     cfg = db.query(NotificationConfig).filter(
@@ -57,7 +62,7 @@ def _send_slack(webhook_url: str, payload: dict) -> None:
 
 
 def _slack_alert_payload(title: str, severity: str, agent: str, mitre: str, description: str) -> dict:
-    emoji = _SEVERITY_EMOJI.get(severity, "🔔")
+    emoji  = _SEVERITY_EMOJI.get(severity, "🔔")
     colour = _SEVERITY_COLOUR.get(severity, "#6B7280")
     return {
         "attachments": [
@@ -92,7 +97,7 @@ def _slack_alert_payload(title: str, severity: str, agent: str, mitre: str, desc
 
 
 def _slack_incident_payload(title: str, severity: str, alert_count: int, endpoints: int) -> dict:
-    emoji = _SEVERITY_EMOJI.get(severity, "🔔")
+    emoji  = _SEVERITY_EMOJI.get(severity, "🔔")
     colour = _SEVERITY_COLOUR.get(severity, "#6B7280")
     return {
         "attachments": [
@@ -139,7 +144,7 @@ def _send_teams(webhook_url: str, payload: dict) -> None:
 
 def _teams_alert_payload(title: str, severity: str, agent: str, mitre: str, description: str) -> dict:
     colour = _SEVERITY_COLOUR.get(severity, "#6B7280").lstrip("#")
-    emoji = _SEVERITY_EMOJI.get(severity, "🔔")
+    emoji  = _SEVERITY_EMOJI.get(severity, "🔔")
     return {
         "@type": "MessageCard",
         "@context": "https://schema.org/extensions",
@@ -186,34 +191,31 @@ def _teams_incident_payload(title: str, severity: str, alert_count: int, endpoin
 # ── Email ─────────────────────────────────────────────────────────────────────
 
 def _send_email(cfg: NotificationConfig, subject: str, html_body: str) -> None:
+    """Synchronous SMTP send. Call this only from inside a Celery worker."""
     if not all([cfg.email_smtp_host, cfg.email_smtp_user, cfg.email_smtp_pass,
                 cfg.email_smtp_from, cfg.email_to]):
         return
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = cfg.email_smtp_from
+        msg["To"]      = cfg.email_to
+        msg.attach(MIMEText(html_body, "html"))
 
-    def _do_send():
-        try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"]    = cfg.email_smtp_from
-            msg["To"]      = cfg.email_to
-            msg.attach(MIMEText(html_body, "html"))
+        port = cfg.email_smtp_port or 587
+        if cfg.email_use_tls:
+            server = smtplib.SMTP(cfg.email_smtp_host, port, timeout=10)
+            server.ehlo()
+            server.starttls()
+        else:
+            server = smtplib.SMTP_SSL(cfg.email_smtp_host, port, timeout=10)
 
-            port = cfg.email_smtp_port or 587
-            if cfg.email_use_tls:
-                server = smtplib.SMTP(cfg.email_smtp_host, port, timeout=10)
-                server.ehlo()
-                server.starttls()
-            else:
-                server = smtplib.SMTP_SSL(cfg.email_smtp_host, port, timeout=10)
-
-            server.login(cfg.email_smtp_user, cfg.email_smtp_pass)
-            recipients = [r.strip() for r in cfg.email_to.split(",") if r.strip()]
-            server.sendmail(cfg.email_smtp_from, recipients, msg.as_string())
-            server.quit()
-        except Exception as e:
-            print(f"[notify:email] {e}")
-
-    threading.Thread(target=_do_send, daemon=True).start()
+        server.login(cfg.email_smtp_user, cfg.email_smtp_pass)
+        recipients = [r.strip() for r in cfg.email_to.split(",") if r.strip()]
+        server.sendmail(cfg.email_smtp_from, recipients, msg.as_string())
+        server.quit()
+    except Exception as e:
+        print(f"[notify:email] {e}")
 
 
 def _alert_email_html(title: str, severity: str, agent: str, mitre: str, description: str) -> str:
@@ -259,13 +261,74 @@ def _incident_email_html(title: str, severity: str, alert_count: int, endpoints:
     """
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+# ── Public API ────────────────────────────────────────────────────────────────
+
+def _dispatch_notify_alert(tenant_id: int, title: str, severity: str,
+                            agent_hostname: str, mitre: str, description: str) -> None:
+    """Send alert notification via Celery, fall back to in-process thread."""
+    try:
+        from app.tasks.notifications import notify_alert_task
+        notify_alert_task.delay(tenant_id, title, severity, agent_hostname, mitre, description)
+    except Exception:
+        import threading
+        from app.database.db import SessionLocal
+        def _run():
+            db = SessionLocal()
+            try:
+                cfg = get_or_create_config(db, tenant_id)
+                if cfg.slack_webhook_url:
+                    _send_slack(cfg.slack_webhook_url,
+                                _slack_alert_payload(title, severity, agent_hostname, mitre, description))
+                if cfg.teams_webhook_url:
+                    _send_teams(cfg.teams_webhook_url,
+                                _teams_alert_payload(title, severity, agent_hostname, mitre, description))
+                if cfg.email_to:
+                    _send_email(cfg, f"[SentryXDR] {severity} Alert: {title}",
+                                _alert_email_html(title, severity, agent_hostname, mitre, description))
+            except Exception as e:
+                print(f"[notify_alert fallback] {e}")
+            finally:
+                db.close()
+        threading.Thread(target=_run, daemon=True).start()
+
+
+def _dispatch_notify_incident(tenant_id: int, title: str, severity: str,
+                               alert_count: int, endpoints: int) -> None:
+    """Send incident notification via Celery, fall back to in-process thread."""
+    try:
+        from app.tasks.notifications import notify_incident_task
+        notify_incident_task.delay(tenant_id, title, severity, alert_count, endpoints)
+    except Exception:
+        import threading
+        from app.database.db import SessionLocal
+        def _run():
+            db = SessionLocal()
+            try:
+                cfg = get_or_create_config(db, tenant_id)
+                if not cfg.notify_on_new_incident:
+                    return
+                if cfg.slack_webhook_url:
+                    _send_slack(cfg.slack_webhook_url,
+                                _slack_incident_payload(title, severity, alert_count, endpoints))
+                if cfg.teams_webhook_url:
+                    _send_teams(cfg.teams_webhook_url,
+                                _teams_incident_payload(title, severity, alert_count, endpoints))
+                if cfg.email_to:
+                    _send_email(cfg, f"[SentryXDR] New Incident: {title}",
+                                _incident_email_html(title, severity, alert_count, endpoints))
+            except Exception as e:
+                print(f"[notify_incident fallback] {e}")
+            finally:
+                db.close()
+        threading.Thread(target=_run, daemon=True).start()
+
 
 def notify_new_alert(db: Session, alert, agent_hostname: str) -> None:
-    """Called after a brand-new alert is created. Non-blocking."""
+    """Called after a new alert is created. Reads config, then dispatches to Celery."""
     try:
-        cfg = get_or_create_config(db, alert.tenant_id if hasattr(alert, "tenant_id") else _resolve_tenant(db, alert.agent_id))
+        tid      = alert.tenant_id if hasattr(alert, "tenant_id") else _resolve_tenant(db, alert.agent_id)
         severity = alert.severity or "Low"
+        cfg      = get_or_create_config(db, tid)
 
         should_notify = (
             (severity == "Critical" and cfg.notify_on_critical) or
@@ -274,69 +337,49 @@ def notify_new_alert(db: Session, alert, agent_hostname: str) -> None:
         if not should_notify:
             return
 
-        title       = alert.title or "Untitled Alert"
-        description = alert.description or ""
-        mitre       = alert.mitre_technique or ""
-
-        if cfg.slack_webhook_url:
-            _send_slack(cfg.slack_webhook_url,
-                        _slack_alert_payload(title, severity, agent_hostname, mitre, description))
-
-        if cfg.teams_webhook_url:
-            _send_teams(cfg.teams_webhook_url,
-                        _teams_alert_payload(title, severity, agent_hostname, mitre, description))
-
-        if cfg.email_to:
-            _send_email(cfg,
-                        f"[SentryXDR] {severity} Alert: {title}",
-                        _alert_email_html(title, severity, agent_hostname, mitre, description))
-
+        _dispatch_notify_alert(
+            tenant_id=tid,
+            title=alert.title or "Untitled Alert",
+            severity=severity,
+            agent_hostname=agent_hostname,
+            mitre=alert.mitre_technique or "",
+            description=alert.description or "",
+        )
     except Exception as e:
         print(f"[notify_new_alert] {e}")
 
 
 def notify_new_incident(db: Session, incident, tenant_id: int) -> None:
-    """Called after a new incident is created. Non-blocking."""
+    """Called after a new incident is created. Reads config, then dispatches to Celery."""
     try:
         cfg = get_or_create_config(db, tenant_id)
         if not cfg.notify_on_new_incident:
             return
 
-        title       = incident.title or "New Incident"
-        severity    = incident.severity or "Low"
-        alert_count = incident.alert_count or 1
-        endpoints   = incident.affected_endpoints or 1
-
-        if cfg.slack_webhook_url:
-            _send_slack(cfg.slack_webhook_url,
-                        _slack_incident_payload(title, severity, alert_count, endpoints))
-
-        if cfg.teams_webhook_url:
-            _send_teams(cfg.teams_webhook_url,
-                        _teams_incident_payload(title, severity, alert_count, endpoints))
-
-        if cfg.email_to:
-            _send_email(cfg,
-                        f"[SentryXDR] New Incident: {title}",
-                        _incident_email_html(title, severity, alert_count, endpoints))
-
+        _dispatch_notify_incident(
+            tenant_id=tenant_id,
+            title=incident.title or "New Incident",
+            severity=incident.severity or "Low",
+            alert_count=incident.alert_count or 1,
+            endpoints=incident.affected_endpoints or 1,
+        )
     except Exception as e:
         print(f"[notify_new_incident] {e}")
 
 
 def send_test_notification(db: Session, tenant_id: int) -> dict:
-    """Send a test message to all configured channels. Returns per-channel results."""
+    """Send test messages synchronously and return per-channel results."""
     cfg    = get_or_create_config(db, tenant_id)
     result = {}
 
-    test_title = "SentryXDR Test Notification"
-    test_payload_alert = _slack_alert_payload(
-        "Test Alert", "High", "TEST-HOST-01", "T1059", "This is a test notification from SentryXDR."
+    test_payload = _slack_alert_payload(
+        "Test Alert", "High", "TEST-HOST-01", "T1059",
+        "This is a test notification from SentryXDR.",
     )
 
     if cfg.slack_webhook_url:
         try:
-            r = http.post(cfg.slack_webhook_url, json=test_payload_alert, timeout=5)
+            r = http.post(cfg.slack_webhook_url, json=test_payload, timeout=5)
             result["slack"] = "ok" if r.ok else f"HTTP {r.status_code}"
         except Exception as e:
             result["slack"] = str(e)
@@ -356,7 +399,7 @@ def send_test_notification(db: Session, tenant_id: int) -> dict:
 
     if cfg.email_to:
         try:
-            _send_email(cfg, f"[SentryXDR] Test Notification",
+            _send_email(cfg, "[SentryXDR] Test Notification",
                         _alert_email_html("Test Alert", "High", "TEST-HOST-01", "T1059",
                                           "This is a test notification from SentryXDR."))
             result["email"] = "dispatched"
