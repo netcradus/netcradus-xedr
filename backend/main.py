@@ -33,6 +33,8 @@ from app.api.detection_rules import router as detection_rules_router
 from app.api.hunt import router as hunt_router
 from app.api.tasks import router as tasks_router
 from app.api.billing import router as billing_router
+from app.api.monitoring import router as monitoring_router
+from app.middleware.latency import LatencyMiddleware
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
@@ -56,6 +58,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Latency must be added after CORS so it wraps the full request lifecycle
+app.add_middleware(LatencyMiddleware)
 
 # Health stays unversioned — infra probes (load balancers, k8s) expect /health at root
 app.include_router(health_router)
@@ -84,6 +88,7 @@ v1.include_router(detection_rules_router)
 v1.include_router(hunt_router)
 v1.include_router(tasks_router)
 v1.include_router(billing_router)
+v1.include_router(monitoring_router)
 app.include_router(v1)
 
 
