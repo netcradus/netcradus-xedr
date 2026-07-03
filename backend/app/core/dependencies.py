@@ -22,6 +22,9 @@ def get_current_user(
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # Reject MFA-session tokens and any other non-access token types
+        if payload.get("type") != "access":
+            raise credentials_exception
         email = payload.get("sub")
         if email is None:
             raise credentials_exception
@@ -37,5 +40,8 @@ def get_current_user(
 
     if user is None:
         raise credentials_exception
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
 
     return user

@@ -24,7 +24,8 @@ from app.services.user_service import authenticate_user, create_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-VALID_PLANS = {"Free", "Pro", "Enterprise"}
+# Matches billing VALID_PLANS in app.core.billing
+VALID_PLANS = {"free", "professional", "enterprise"}
 _REFRESH_COOKIE = "refresh_token"
 _MFA_SESSION_MINUTES = 5
 
@@ -69,7 +70,7 @@ def _set_refresh_cookie(user: User, db: Session, response: Response) -> None:
         key=_REFRESH_COOKIE,
         value=token,
         httponly=True,
-        secure=False,     # set True behind HTTPS in production
+        secure=not settings.debug,   # True in production (HTTPS), False when DEBUG=true
         samesite="lax",
         max_age=settings.refresh_token_expire_days * 86400,
         path="/auth",
@@ -122,7 +123,7 @@ def register(
     if db.query(Tenant).filter(Tenant.name == body.company).first():
         raise HTTPException(status_code=409, detail="Company name already taken")
 
-    plan = body.plan if body.plan in VALID_PLANS else "Free"
+    plan = body.plan.lower() if body.plan.lower() in VALID_PLANS else "free"
 
     tenant = Tenant(
         name=body.company,
@@ -177,7 +178,8 @@ def register(
 
 
 @router.post("/signup")
-def signup(user: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def signup(request: Request, user: UserCreate, db: Session = Depends(get_db)):
     """Legacy signup — assigns user to Default tenant. Use /register instead."""
     db_user = create_user(db, user)
     if db_user is None:
@@ -319,6 +321,9 @@ def reset_password(
     user.password = hash_password(body.new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
+    # Invalidate all active sessions — anyone holding an old refresh token is kicked out
+    user.refresh_token = None
+    user.refresh_token_expires = None
     db.commit()
     return {"message": "Password reset successfully"}
 

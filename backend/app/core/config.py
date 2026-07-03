@@ -54,5 +54,8 @@ class Settings:
     # Redis / Celery broker
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+    # Set DEBUG=true in dev; controls whether refresh cookies are Secure-only
+    debug = os.getenv("DEBUG", "false").lower() == "true"
+
 
 settings = Settings()
