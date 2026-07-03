@@ -159,8 +159,8 @@ def generate_scheduled_report_task(
             cfg.enabled     = cfg.enabled  # keep value, just trigger update
             db.commit()
 
-        # Email if recipients configured
-        if cfg and cfg.recipients:
+        # Email if enabled and recipients configured
+        if cfg and cfg.enabled and cfg.recipients:
             _email_report(cfg.recipients, report_type, period_start, period_end, pdf_bytes)
 
         return {"status": "done", "record_id": record_id, "file_size": len(pdf_bytes)}
@@ -172,14 +172,9 @@ def generate_scheduled_report_task(
             db.commit()
         except Exception:
             db.rollback()
-        finally:
-            db.close()
         raise self.retry(exc=exc)
     finally:
-        try:
-            db.close()
-        except Exception:
-            pass
+        db.close()
 
 
 def _email_report(
