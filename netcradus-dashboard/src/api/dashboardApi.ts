@@ -79,11 +79,12 @@ function buildRiskyEndpoints(alerts: BackendAlert[], agents: BackendAgent[]): Ri
 }
 
 export async function fetchDashboardData() {
-  const [stats, alerts, agents] = await Promise.all([
+  const [stats, alertsPage, agents] = await Promise.all([
     fetchAlertStats(),
-    fetchAlerts(),
+    fetchAlerts({ limit: 200 }),
     fetchAgents(),
   ])
+  const alerts = alertsPage.items
 
   const onlineCount = agents.filter((a) => a.status === 'Online').length
   const totalAgents = agents.length
