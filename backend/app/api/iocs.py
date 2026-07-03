@@ -165,10 +165,10 @@ def sync_iocs_endpoint(
         db: Session = Depends(get_db)):
     """
     Enqueue a background task to enrich all un-enriched IOCs for this tenant.
-    Returns 202 immediately; enrichment runs in Celery workers.
+    Returns 202 immediately; poll GET /tasks/{task_id} to check progress.
     """
-    sync_iocs_task.delay(current_user.tenant_id)
-    return {"status": "accepted", "tenant_id": current_user.tenant_id}
+    task = sync_iocs_task.delay(current_user.tenant_id)
+    return {"status": "accepted", "task_id": task.id, "tenant_id": current_user.tenant_id}
 
 
 @router.delete(

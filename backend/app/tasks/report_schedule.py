@@ -229,7 +229,7 @@ def _email_report(
                 if getattr(settings, "smtp_tls", True):
                     srv.starttls()
                 if getattr(settings, "smtp_user", None):
-                    srv.login(settings.smtp_user, settings.smtp_password)
+                    srv.login(settings.smtp_user, settings.smtp_pass)
                 srv.sendmail(msg["From"], [addr], msg.as_string())
         except Exception:
             pass  # Best-effort — don't let one bad address fail others

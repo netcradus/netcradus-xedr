@@ -88,15 +88,30 @@ def manual_lookup(
     return result
 
 
-@router.post("/enrich/{ioc_id}")
+@router.post("/enrich/{ioc_id}", status_code=202)
 def enrich_ioc_endpoint(
         ioc_id: int,
         current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
+    """Enqueue enrichment for a single IOC. Poll GET /tasks/{task_id} for status."""
+    from app.tasks.enrichment import enrich_ioc_task
     ioc = db.query(IOC).filter(IOC.id == ioc_id).first()
     if not ioc:
         raise HTTPException(status_code=404, detail="IOC not found")
     ioc.enrichment_status = "pending"
     db.commit()
-    enrich_ioc_background(ioc_id, current_user.tenant_id)
-    return {"status": "queued", "ioc_id": ioc_id}
+    task = enrich_ioc_task.delay(ioc_id, current_user.tenant_id)
+    return {"status": "accepted", "ioc_id": ioc_id, "task_id": task.id}
+
+
+@router.post("/lookup-async", status_code=202)
+def lookup_async(
+        request: LookupRequest,
+        current_user: User = Depends(analyst_required)):
+    """
+    Enqueue an async IOC lookup (VT / AbuseIPDB / OTX).
+    Returns 202 immediately; poll GET /tasks/{task_id} for the result.
+    """
+    from app.tasks.lookup import lookup_ioc_task
+    task = lookup_ioc_task.delay(current_user.tenant_id, request.ioc_type, request.value)
+    return {"status": "accepted", "task_id": task.id}

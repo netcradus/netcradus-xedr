@@ -31,6 +31,7 @@ from app.api.health import router as health_router
 from app.api.support import router as support_router
 from app.api.detection_rules import router as detection_rules_router
 from app.api.hunt import router as hunt_router
+from app.api.tasks import router as tasks_router
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
@@ -80,6 +81,7 @@ v1.include_router(platform_admin_router)
 v1.include_router(support_router)
 v1.include_router(detection_rules_router)
 v1.include_router(hunt_router)
+v1.include_router(tasks_router)
 app.include_router(v1)
 
 

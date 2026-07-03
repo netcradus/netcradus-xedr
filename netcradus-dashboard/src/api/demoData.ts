@@ -367,7 +367,28 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
     // POST /reports/trigger/{report_type}
     const triggerMatch = base.match(/^\/reports\/trigger\/(.+)$/)
     if (triggerMatch) {
-      return { status: 'accepted', report_type: triggerMatch[1], tenant_id: 9999 } as unknown as T
+      return { status: 'accepted', task_id: 'demo-task-report', report_type: triggerMatch[1], tenant_id: 9999 } as unknown as T
+    }
+
+    // POST /reports/generate
+    if (base === '/reports/generate') {
+      return { status: 'accepted', task_id: 'demo-task-report-cache', tenant_id: 9999 } as unknown as T
+    }
+
+    // POST /iocs/sync
+    if (base === '/iocs/sync') {
+      return { status: 'accepted', task_id: 'demo-task-ioc-sync', tenant_id: 9999 } as unknown as T
+    }
+
+    // POST /threat-feeds/enrich/{ioc_id}
+    const enrichMatch = base.match(/^\/threat-feeds\/enrich\/(\d+)$/)
+    if (enrichMatch) {
+      return { status: 'accepted', ioc_id: parseInt(enrichMatch[1]), task_id: 'demo-task-enrich-' + enrichMatch[1] } as unknown as T
+    }
+
+    // POST /threat-feeds/lookup-async
+    if (base === '/threat-feeds/lookup-async') {
+      return { status: 'accepted', task_id: 'demo-task-lookup' } as unknown as T
     }
 
     return {} as unknown as T
@@ -414,6 +435,12 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   if (base.startsWith('/commands'))        return DEMO_COMMANDS         as unknown as T
   if (base.startsWith('/support'))         return []                    as unknown as T
   if (base.startsWith('/platform'))        return []                    as unknown as T
+
+  // ── GET: Task status ─────────────────────────────────────────────────────
+  const taskMatch = base.match(/^\/tasks\/(.+)$/)
+  if (taskMatch) {
+    return { task_id: taskMatch[1], status: 'SUCCESS', result: { queued: 0 } } as unknown as T
+  }
 
   // ── GET: Threat hunt endpoints ────────────────────────────────────────────
   if (base === '/hunt/process')     return DEMO_HUNT_PROCESS     as unknown as T

@@ -3,7 +3,7 @@ import json
 from app.core.celery_app import celery_app
 from celery import shared_task
 
-REPORT_CACHE_KEY = "sxdr:report:{tenant_id}"
+REPORT_CACHE_KEY = "netcrad:report:{tenant_id}"
 REPORT_CACHE_TTL = 1800  # 30 minutes
 
 

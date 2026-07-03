@@ -64,8 +64,8 @@ def trigger_report_generation(
     current_user: User = Depends(admin_required),
 ):
     """Enqueue a background task to (re)generate and cache the report summary."""
-    generate_report_cache_task.delay(current_user.tenant_id)
-    return {"status": "accepted", "tenant_id": current_user.tenant_id}
+    task = generate_report_cache_task.delay(current_user.tenant_id)
+    return {"status": "accepted", "task_id": task.id, "tenant_id": current_user.tenant_id}
 
 
 # ── GET /reports/scheduled ─────────────────────────────────────────────────────
@@ -148,12 +148,12 @@ def trigger_scheduled_report(
     start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
     end   = now
 
-    generate_scheduled_report_task.delay(
+    task = generate_scheduled_report_task.delay(
         current_user.tenant_id, report_type,
         start.isoformat(), end.isoformat(),
         "manual",
     )
-    return {"status": "accepted", "report_type": report_type, "tenant_id": current_user.tenant_id}
+    return {"status": "accepted", "task_id": task.id, "report_type": report_type, "tenant_id": current_user.tenant_id}
 
 
 # ── GET /reports/history ───────────────────────────────────────────────────────

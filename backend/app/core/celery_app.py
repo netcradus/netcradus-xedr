@@ -8,6 +8,7 @@ celery_app = Celery(
     backend=settings.redis_url,
     include=[
         "app.tasks.enrichment",
+        "app.tasks.lookup",
         "app.tasks.notifications",
         "app.tasks.reports",
         "app.tasks.report_schedule",
