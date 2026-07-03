@@ -395,7 +395,8 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   }
 
   // ── GET: Exact matches ────────────────────────────────────────────────────
-  if (base === '/alerts/stats')         return DEMO_ALERT_STATS     as unknown as T
+  if (base === '/alerts/stats')         return DEMO_ALERT_STATS                                                       as unknown as T
+  if (base === '/alerts/open')          return DEMO_ALERTS.filter((a) => a.status === 'Open').slice(0, 10)          as unknown as T
   if (base === '/incidents/stats')      return DEMO_INCIDENT_STATS   as unknown as T
   if (base === '/users/me')             return DEMO_ME               as unknown as T
   if (base === '/threat-feeds/config')  return DEMO_FEED_CONFIG      as unknown as T
@@ -425,7 +426,21 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   }
 
   // ── GET: Prefix matches ───────────────────────────────────────────────────
-  if (base.startsWith('/alerts'))          return DEMO_ALERTS           as unknown as T
+  if (base.startsWith('/alerts')) {
+    // /alerts/ returns paginated AlertsPage; apply basic filters from query string
+    const qs = path.includes('?') ? new URLSearchParams(path.split('?')[1]) : new URLSearchParams()
+    const status   = qs.get('status')
+    const severity = qs.get('severity')
+    const offset   = parseInt(qs.get('offset') ?? '0')
+    const limit    = parseInt(qs.get('limit')  ?? '25')
+    let items = DEMO_ALERTS.map((a) => ({
+      ...a,
+      agent_hostname: DEMO_AGENTS.find((g) => g.id === a.agent_id)?.hostname ?? null,
+    }))
+    if (status)   items = items.filter((a) => a.status === status)
+    if (severity) items = items.filter((a) => a.severity === severity)
+    return { total: items.length, offset, limit, items: items.slice(offset, offset + limit) } as unknown as T
+  }
   if (base.startsWith('/agents'))          return DEMO_AGENTS           as unknown as T
   if (base.startsWith('/incidents'))       return DEMO_INCIDENTS        as unknown as T
   if (base.startsWith('/iocs'))            return DEMO_IOCS             as unknown as T
