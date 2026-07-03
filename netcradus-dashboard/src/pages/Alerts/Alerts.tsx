@@ -8,9 +8,9 @@ import {
 import Topbar from '@/components/layout/Topbar/Topbar'
 import Card from '@/components/ui/Card/Card'
 import Badge from '@/components/ui/Badge/Badge'
-import { fetchAlerts, resolveAlert } from '@/api/alertsApi'
+import { fetchAlerts, fetchAlertStats, resolveAlert } from '@/api/alertsApi'
 import { fetchAgents } from '@/api/agentsApi'
-import type { BackendAlert, BackendAgent } from '@/types/api.types'
+import type { BackendAlert, BackendAgent, AlertStats } from '@/types/api.types'
 import type { Severity } from '@/types/dashboard.types'
 import type { AlertFilters } from '@/api/alertsApi'
 
@@ -98,6 +98,7 @@ export default function Alerts() {
   // ── Data state ────────────────────────────────────────────────────────────
   const [items,     setItems]     = useState<BackendAlert[]>([])
   const [total,     setTotal]     = useState(0)
+  const [stats,     setStats]     = useState<AlertStats | null>(null)
   const [agents,    setAgents]    = useState<BackendAgent[]>([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState<string | null>(null)
@@ -133,9 +134,10 @@ export default function Alerts() {
     setSearchParams(p, { replace: true })
   }, [debouncedSearch, status, severity, fromDate, toDate, agentId, mitre, sortBy, sortDir, pageSize, page, setSearchParams])
 
-  // ── Load agents for dropdown ──────────────────────────────────────────────
+  // ── Load agents + stats once (not affected by filters) ───────────────────
   useEffect(() => {
     fetchAgents().then(setAgents).catch(() => {})
+    fetchAlertStats().then(setStats).catch(() => {})
   }, [])
 
   // ── Fetch alerts ──────────────────────────────────────────────────────────
@@ -220,6 +222,7 @@ export default function Alerts() {
           {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map((sev) => {
             const c = SEV_COLORS[sev]
             const active = severity === sev
+            const count = stats?.[sev.toLowerCase() as keyof AlertStats] ?? '—'
             return (
               <button
                 key={sev}
@@ -228,7 +231,7 @@ export default function Alerts() {
                   ${c.border} ${c.bg}
                   ${active ? 'ring-2 ring-offset-1 ring-blue-500' : 'hover:brightness-95'}`}
               >
-                <p className={`text-2xl font-bold ${c.text}`}>—</p>
+                <p className={`text-2xl font-bold ${c.text}`}>{count}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {sev}{active ? ' ✕' : ''}
                 </p>
