@@ -15,6 +15,13 @@ class Tenant(Base):
 
     is_active = Column(Boolean, default=True)
 
-    plan = Column(String(50), default="Free")
+    # "free" | "professional" | "enterprise"
+    plan = Column(String(50), default="free")
+
+    # Per-tenant agent cap override; NULL means use the plan default
+    plan_agent_limit = Column(Integer, nullable=True)
+
+    # Optional expiry for time-limited plans / trials
+    plan_expires_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)

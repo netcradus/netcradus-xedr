@@ -35,6 +35,20 @@ def register_agent(
     else:
         tenant = db.query(Tenant).filter(Tenant.name == "Default").first()
 
+    # Enforce plan agent quota before registering
+    from app.services.billing_service import check_agent_quota
+    if not check_agent_quota(db, tenant.id):
+        from app.services.billing_service import get_plan_usage
+        usage = get_plan_usage(db, tenant.id)
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"Agent limit reached ({usage['agents_used']}/{usage['agents_limit']}) "
+                f"for the '{usage['plan_display']}' plan. "
+                "Upgrade your plan to register more agents."
+            ),
+        )
+
     db_agent = Agent(
 
         hostname=agent.hostname,
