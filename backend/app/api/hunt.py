@@ -7,10 +7,12 @@ endpoint — a bare call with no filters is rejected with 422.
 
 Endpoints
 ---------
-GET /hunt/process     — Search process telemetry by name, cmdline, username, hash, parent
 GET /hunt/hash        — Cross-search SHA256/MD5 in process and file telemetry
 GET /hunt/ip          — Search network telemetry by remote IP (with optional port filter)
-GET /hunt/domain      — Search cmdlines and file paths for a domain/URL fragment
+GET /hunt/domain      — Search cmdlines, file paths, and log messages for a domain fragment
+GET /hunt/username    — Cross-source search across process and log telemetry by username
+GET /hunt/process     — Search process telemetry by name, cmdline, username, hash, parent
+GET /hunt/mitre       — Search alerts and detection rules by MITRE ATT&CK technique
 GET /hunt/persistence — Search persistence entries by type, name, or path
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -160,6 +162,67 @@ def hunt_domain(
     return hunt_service.hunt_domain(
         db, current_user.tenant_id,
         value=value, agent_id=agent_id, days=days, limit=limit,
+    )
+
+
+# ── GET /hunt/username ───────────────────────────────────────────────────────
+
+@router.get("/username")
+def hunt_username(
+    value:    str        = Query(..., min_length=2, description="Username substring to search for"),
+    agent_id: int | None = Query(default=None),
+    days:     int        = Query(default=7),
+    limit:    int        = Query(default=_DEF_LIMIT),
+    current_user: User   = Depends(analyst_required),
+    db: Session          = Depends(get_db),
+):
+    """
+    Hunt by username across **process telemetry** and **log telemetry**.
+
+    Useful for:
+    - Lateral movement (same user appearing on unexpected hosts)
+    - Privilege escalation (unexpected processes under SYSTEM / root)
+    - Insider threat (after-hours access patterns)
+
+    **Example queries**
+    - `?value=administrator` — find all processes run as Administrator
+    - `?value=john.doe` — track a specific user across all endpoints
+    - `?value=SYSTEM` — find suspicious SYSTEM-level process spawns
+    """
+    days, limit = _clamp(days, limit)
+    return hunt_service.hunt_username(
+        db, current_user.tenant_id,
+        value=value, agent_id=agent_id, days=days, limit=limit,
+    )
+
+
+# ── GET /hunt/mitre ───────────────────────────────────────────────────────────
+
+@router.get("/mitre")
+def hunt_mitre(
+    technique: str = Query(..., min_length=2, description="MITRE technique ID (e.g. T1059) or name substring"),
+    days:      int = Query(default=30),
+    limit:     int = Query(default=_DEF_LIMIT),
+    current_user: User = Depends(analyst_required),
+    db: Session        = Depends(get_db),
+):
+    """
+    Hunt by MITRE ATT&CK technique or tactic.
+
+    Returns two result sets:
+    - **alerts** — triggered alerts that match the technique, with severity breakdown
+    - **detection_rules** — rules (system-wide + tenant) mapped to the technique
+
+    **Example queries**
+    - `?technique=T1059` — Command and Scripting Interpreter (all sub-techniques)
+    - `?technique=T1059.001` — PowerShell specifically
+    - `?technique=Credential` — all credential-access techniques
+    - `?technique=Execution` — all execution-tactic alerts
+    """
+    days, limit = _clamp(days, limit)
+    return hunt_service.hunt_mitre(
+        db, current_user.tenant_id,
+        technique=technique, days=days, limit=limit,
     )
 
 
