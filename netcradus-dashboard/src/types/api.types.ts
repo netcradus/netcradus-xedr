@@ -25,11 +25,19 @@ export interface BackendAlert {
   title: string
   description: string
   severity: BackendSeverity
-  mitre_technique: string
+  mitre_technique: string | null
   status: AlertStatus
   occurrence_count: number
   timestamp: string
   agent_id: number
+  agent_hostname: string | null
+}
+
+export interface AlertsPage {
+  total: number
+  offset: number
+  limit: number
+  items: BackendAlert[]
 }
 
 export interface BackendAgent {
