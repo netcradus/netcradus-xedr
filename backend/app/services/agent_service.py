@@ -86,6 +86,9 @@ def update_heartbeat(
 
     agent.status = "Online"
 
+    if getattr(request, "agent_version", None):
+        agent.agent_version = request.agent_version
+
     db.commit()
 
     return True

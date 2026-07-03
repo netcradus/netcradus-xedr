@@ -1,7 +1,8 @@
-﻿import json
+import json
 import os
 import platform
 import socket
+import sys
 import time
 import requests
 
@@ -15,145 +16,132 @@ from syslog_monitor import collect_syslog
 from windows_event_log_monitor import collect_windows_events
 from web_log_monitor import collect_web_logs
 from app_log_monitor import collect_app_logs
+from update_manager import check_and_apply
 
 
-# Load configuration
-CONFIG_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "config.json"
-)
+# ── Configuration ──────────────────────────────────────────────────────────────
+
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 
 with open(CONFIG_PATH, "r") as f:
     config = json.load(f)
 
+# server_url already contains /api/v1 — do not append it again
 SERVER_URL = os.getenv(
     "NETCRADXDR_SERVER_URL",
-    config["server_url"]
-)
+    config["server_url"],
+).rstrip("/")
 
 AGENT_TOKEN = os.getenv(
     "NETCRADXDR_AGENT_TOKEN",
-    config.get("agent_token", "")
+    config.get("agent_token", ""),
 )
 
 POLL_INTERVAL = config.get("poll_interval", 10)
 
-# Log source configuration
+# Update check runs every N poll cycles (default 6 × 10 s = every 60 s)
+UPDATE_CHECK_INTERVAL = config.get("update_check_interval", 6)
+
 _LOG_CFG = config.get("log_sources", {})
 
 
-def register_agent_if_needed():
+# ── Agent registration ─────────────────────────────────────────────────────────
 
+def register_agent_if_needed():
     global AGENT_TOKEN
 
     if AGENT_TOKEN:
-
         return
 
     hostname = socket.gethostname()
-
     response = requests.post(
         f"{SERVER_URL}/agents/register",
         json={
-            "hostname": hostname,
-            "ip_address": socket.gethostbyname(hostname),
-            "os_type": platform.system(),
-            "agent_version": "1.0.0",
+            "hostname":           hostname,
+            "ip_address":         socket.gethostbyname(hostname),
+            "os_type":            platform.system(),
+            "agent_version":      config.get("agent_version", "1.0.0"),
             "registration_token": os.getenv(
                 "NETCRADXDR_AGENT_REGISTRATION_TOKEN",
-                config.get("registration_token", "")
-            )
+                config.get("registration_token", ""),
+            ),
         },
-        timeout=10
+        timeout=10,
     )
-
     response.raise_for_status()
-
     data = response.json()
 
     AGENT_TOKEN = data["agent_token"]
-
     config["agent_token"] = AGENT_TOKEN
-
     with open(CONFIG_PATH, "w") as f:
+        json.dump(config, f, indent=2)
 
-        json.dump(
-            config,
-            f,
-            indent=2
-        )
 
+# ── Log collection ─────────────────────────────────────────────────────────────
 
 def _collect_logs():
-    """Collect from all enabled log sources."""
     syslog_cfg = _LOG_CFG.get("syslog", {})
     if syslog_cfg.get("enabled", True):
-        collect_syslog(
-            SERVER_URL, AGENT_TOKEN,
-            paths=syslog_cfg.get("paths"),
-        )
+        collect_syslog(SERVER_URL, AGENT_TOKEN, paths=syslog_cfg.get("paths"))
 
     winevent_cfg = _LOG_CFG.get("windows_event", {})
     if winevent_cfg.get("enabled", True):
-        collect_windows_events(
-            SERVER_URL, AGENT_TOKEN,
-            channels=winevent_cfg.get("channels"),
-        )
+        collect_windows_events(SERVER_URL, AGENT_TOKEN, channels=winevent_cfg.get("channels"))
 
     web_cfg = _LOG_CFG.get("web_logs", {})
     if web_cfg.get("enabled", False):
-        collect_web_logs(
-            SERVER_URL, AGENT_TOKEN,
-            sources=web_cfg.get("sources", []),
-        )
+        collect_web_logs(SERVER_URL, AGENT_TOKEN, sources=web_cfg.get("sources", []))
 
     app_cfg = _LOG_CFG.get("app_logs", {})
     if app_cfg.get("enabled", False):
-        collect_app_logs(
-            SERVER_URL, AGENT_TOKEN,
-            sources=app_cfg.get("paths", []),
-        )
+        collect_app_logs(SERVER_URL, AGENT_TOKEN, sources=app_cfg.get("paths", []))
 
+
+# ── Main loop ──────────────────────────────────────────────────────────────────
 
 def main():
-
     print("===== NetcradXDR Agent Started =====")
-
     register_agent_if_needed()
 
-    observer = start_file_monitor(
-        SERVER_URL,
-        AGENT_TOKEN
-    )
+    observer = start_file_monitor(SERVER_URL, AGENT_TOKEN)
+    cycle = 0
 
     try:
-
         while True:
-
             # Endpoint telemetry
             collect_processes(SERVER_URL, AGENT_TOKEN)
             collect_network(SERVER_URL, AGENT_TOKEN)
             collect_persistence(SERVER_URL, AGENT_TOKEN)
 
-            # Log ingestion (syslog / Windows Event Log / web logs / app logs)
+            # Log ingestion
             _collect_logs()
 
-            # Heartbeat + command polling
-            send_heartbeat(SERVER_URL, AGENT_TOKEN)
+            # Heartbeat — response may carry an update signal
+            hb_resp = send_heartbeat(SERVER_URL, AGENT_TOKEN)
+
+            # Command polling
             execute_command(SERVER_URL, AGENT_TOKEN)
+
+            # Update check (every UPDATE_CHECK_INTERVAL cycles)
+            cycle += 1
+            if cycle % UPDATE_CHECK_INTERVAL == 0:
+                if check_and_apply(SERVER_URL, AGENT_TOKEN, hb_resp):
+                    print("[agent] Exiting for self-update...")
+                    observer.stop()
+                    observer.join()
+                    sys.exit(0)
 
             time.sleep(POLL_INTERVAL)
 
     except KeyboardInterrupt:
-
         print("\nStopping NetcradXDR Agent...")
         observer.stop()
         observer.join()
-        print("Agent stopped successfully.")
+        print("Agent stopped.")
 
     except Exception as e:
-
         print(f"[ERROR] {e}")
+
 
 if __name__ == "__main__":
     main()

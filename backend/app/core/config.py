@@ -48,6 +48,9 @@ class Settings:
         "http://localhost:5173,http://127.0.0.1:5173"
     )
 
+    # Directory where agent update packages are stored on disk
+    agent_updates_dir = os.getenv("AGENT_UPDATES_DIR", "./agent_packages")
+
     # Redis / Celery broker
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
