@@ -5,7 +5,7 @@ import Dropdown from '@/components/ui/Dropdown/Dropdown'
 import Button from '@/components/ui/Button/Button'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
-import { fetchAlerts } from '@/api/alertsApi'
+import { fetchOpenAlerts } from '@/api/alertsApi'
 import type { BackendAlert } from '@/types/api.types'
 
 interface TopbarProps {
@@ -48,9 +48,7 @@ export default function Topbar({ title, subtitle, onRefresh }: TopbarProps) {
   const notifRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetchAlerts()
-      .then((all) => setAlerts(all.filter((a) => a.status === 'Open').slice(0, 10)))
-      .catch(() => {})
+    fetchOpenAlerts(10).then(setAlerts).catch(() => {})
   }, [])
 
   // close notif panel on outside click
