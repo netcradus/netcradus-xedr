@@ -1,5 +1,7 @@
-"""Report computation extracted so both the API handler and the Celery task can call it."""
+"""Report summary computation — all aggregation done in SQL, not Python."""
 from datetime import datetime, timedelta
+
+from sqlalchemy import cast, Date, func
 from sqlalchemy.orm import Session
 
 from app.models.alert import Alert
@@ -9,83 +11,115 @@ from app.models.command import Command
 
 
 def compute_summary(db: Session, tenant_id: int) -> dict:
-    # ── Alert stats ───────────────────────────────────────────────────────────
-    alerts = (
+    # ── Alert base query (reused) ──────────────────────────────────────────────
+    alert_q = (
         db.query(Alert)
         .join(Agent, Alert.agent_id == Agent.id)
         .filter(Agent.tenant_id == tenant_id)
+    )
+
+    # Total + status counts — two COUNT queries instead of loading all rows
+    total_alerts    = alert_q.count()
+    open_alerts     = alert_q.filter(Alert.status == "Open").count()
+    resolved_alerts = total_alerts - open_alerts
+
+    # Severity breakdown — one GROUP BY query
+    sev_counts: dict[str, int] = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "Informational": 0}
+    for sev, cnt in (
+        alert_q
+        .with_entities(Alert.severity, func.count(Alert.id))
+        .group_by(Alert.severity)
+        .all()
+    ):
+        if sev in sev_counts:
+            sev_counts[sev] = int(cnt)
+
+    # 30-day daily trend — one GROUP BY + date-cast query
+    cutoff = datetime.utcnow() - timedelta(days=29)
+    trend: dict[str, int] = {
+        (cutoff + timedelta(days=i)).strftime("%Y-%m-%d"): 0
+        for i in range(30)
+    }
+    for day, cnt in (
+        alert_q
+        .filter(Alert.timestamp >= cutoff)
+        .with_entities(cast(Alert.timestamp, Date), func.count(Alert.id))
+        .group_by(cast(Alert.timestamp, Date))
+        .all()
+    ):
+        key = str(day)   # "YYYY-MM-DD"
+        if key in trend:
+            trend[key] = int(cnt)
+
+    # Top MITRE techniques — one GROUP BY + ORDER BY + LIMIT query
+    mitre_rows = (
+        alert_q
+        .filter(Alert.mitre_technique.isnot(None), Alert.mitre_technique != "")
+        .with_entities(Alert.mitre_technique, func.count(Alert.id).label("cnt"))
+        .group_by(Alert.mitre_technique)
+        .order_by(func.count(Alert.id).desc())
+        .limit(10)
         .all()
     )
-    sev_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "Informational": 0}
-    for a in alerts:
-        sev_counts[a.severity] = sev_counts.get(a.severity, 0) + 1
 
-    # ── Incident stats + MTTR ─────────────────────────────────────────────────
-    incidents = db.query(Incident).filter(Incident.tenant_id == tenant_id).all()
-    resolved_incidents = [
-        i for i in incidents
-        if i.status == "Resolved" and i.resolved_at and i.created_at
-    ]
-    mttr_hours = None
-    if resolved_incidents:
-        avg_seconds = sum(
-            (i.resolved_at - i.created_at).total_seconds()
-            for i in resolved_incidents
-        ) / len(resolved_incidents)
-        mttr_hours = round(avg_seconds / 3600, 1)
+    # ── Incident stats ────────────────────────────────────────────────────────
+    inc_q = db.query(Incident).filter(Incident.tenant_id == tenant_id)
+    total_incidents    = inc_q.count()
+    open_incidents     = inc_q.filter(Incident.status == "Open").count()
+    resolved_incidents = inc_q.filter(Incident.status == "Resolved").count()
+
+    # MTTR — one AVG(EXTRACT(EPOCH ...)) query, PostgreSQL
+    mttr_seconds = (
+        inc_q
+        .filter(
+            Incident.status == "Resolved",
+            Incident.resolved_at.isnot(None),
+            Incident.created_at.isnot(None),
+        )
+        .with_entities(
+            func.avg(
+                func.extract("epoch", Incident.resolved_at - Incident.created_at)
+            )
+        )
+        .scalar()
+    )
+    mttr_hours = round(float(mttr_seconds) / 3600, 1) if mttr_seconds else None
 
     # ── Agent stats ───────────────────────────────────────────────────────────
-    agents = db.query(Agent).filter(Agent.tenant_id == tenant_id).all()
-
-    # ── 30-day alert trend ────────────────────────────────────────────────────
-    now    = datetime.utcnow()
-    cutoff = now - timedelta(days=29)
-    trend: dict[str, int] = {}
-    for i in range(30):
-        trend[(cutoff + timedelta(days=i)).strftime("%Y-%m-%d")] = 0
-    for a in alerts:
-        if a.timestamp and a.timestamp >= cutoff:
-            day = a.timestamp.strftime("%Y-%m-%d")
-            if day in trend:
-                trend[day] += 1
-
-    # ── Top MITRE ─────────────────────────────────────────────────────────────
-    mitre_counts: dict[str, int] = {}
-    for a in alerts:
-        t = (a.mitre_technique or "").strip()
-        if t:
-            mitre_counts[t] = mitre_counts.get(t, 0) + 1
-    top_mitre = sorted(mitre_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    agent_q     = db.query(Agent).filter(Agent.tenant_id == tenant_id)
+    total_agents  = agent_q.count()
+    online_agents = agent_q.filter(Agent.status == "Online").count()
 
     # ── SOAR command stats ────────────────────────────────────────────────────
-    commands = (
+    cmd_q = (
         db.query(Command)
         .join(Agent, Command.agent_id == Agent.id)
         .filter(Agent.tenant_id == tenant_id)
-        .all()
     )
+    total_commands     = cmd_q.count()
+    completed_commands = cmd_q.filter(Command.status == "Completed").count()
 
     return {
         "alerts": {
-            "total":       len(alerts),
-            "open":        sum(1 for a in alerts if a.status == "Open"),
-            "resolved":    sum(1 for a in alerts if a.status == "Resolved"),
+            "total":       total_alerts,
+            "open":        open_alerts,
+            "resolved":    resolved_alerts,
             "by_severity": sev_counts,
         },
         "incidents": {
-            "total":    len(incidents),
-            "open":     sum(1 for i in incidents if i.status == "Open"),
-            "resolved": len(resolved_incidents),
+            "total":      total_incidents,
+            "open":       open_incidents,
+            "resolved":   resolved_incidents,
             "mttr_hours": mttr_hours,
         },
         "agents": {
-            "total":  len(agents),
-            "online": sum(1 for a in agents if a.status == "Online"),
+            "total":  total_agents,
+            "online": online_agents,
         },
         "commands": {
-            "total":     len(commands),
-            "completed": sum(1 for c in commands if c.status == "Completed"),
+            "total":     total_commands,
+            "completed": completed_commands,
         },
         "trend_30d": [{"date": d, "count": c} for d, c in sorted(trend.items())],
-        "top_mitre":  [{"technique": t, "count": c} for t, c in top_mitre],
+        "top_mitre":  [{"technique": t, "count": int(c)} for t, c in mitre_rows],
     }

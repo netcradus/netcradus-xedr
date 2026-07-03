@@ -488,7 +488,10 @@ export default function Reports() {
           ))}
         </div>
 
-        {loading ? (
+        {/* Compliance tab has no API dependency — render immediately */}
+        {tab === 'compliance' ? (
+          <ComplianceTab />
+        ) : loading ? (
           <div className="flex items-center justify-center py-32 gap-2 text-gray-400">
             <RefreshCw size={16} className="animate-spin" />
             <span className="text-sm">Generating report…</span>
@@ -500,9 +503,8 @@ export default function Reports() {
           </div>
         ) : data ? (
           <>
-            {tab === 'overview'   && <OverviewTab data={data} />}
-            {tab === 'compliance' && <ComplianceTab />}
-            {tab === 'export'     && <ExportTab data={data} />}
+            {tab === 'overview' && <OverviewTab data={data} />}
+            {tab === 'export'   && <ExportTab data={data} />}
           </>
         ) : null}
       </div>
