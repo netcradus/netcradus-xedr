@@ -43,7 +43,8 @@ def create_ioc_endpoint(
         ioc = create_ioc(
             db,
             request,
-            current_user.email
+            current_user.email,
+            current_user.tenant_id,
         )
 
         enrich_ioc_background(ioc.id, current_user.tenant_id)
@@ -75,7 +76,8 @@ def list_iocs_endpoint(
 
         return search_ioc(
             db,
-            search
+            current_user.tenant_id,
+            search,
         )
 
     if ioc_type:
@@ -93,8 +95,9 @@ def list_iocs_endpoint(
 
     return list_iocs(
         db,
+        current_user.tenant_id,
         ioc_type,
-        active_only
+        active_only,
     )
 
 
@@ -107,10 +110,7 @@ def get_ioc_endpoint(
         current_user: User = Depends(analyst_required),
         db: Session = Depends(get_db)):
 
-    ioc = get_ioc(
-        db,
-        ioc_id
-    )
+    ioc = get_ioc(db, ioc_id, current_user.tenant_id)
 
     if not ioc:
 
@@ -137,7 +137,8 @@ def update_ioc_endpoint(
         ioc = update_ioc(
             db,
             ioc_id,
-            request
+            request,
+            current_user.tenant_id,
         )
 
     except IntegrityError:
@@ -180,10 +181,7 @@ def delete_ioc_endpoint(
         current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
 
-    deleted = delete_ioc(
-        db,
-        ioc_id
-    )
+    deleted = delete_ioc(db, ioc_id, current_user.tenant_id)
 
     if not deleted:
 

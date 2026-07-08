@@ -35,7 +35,8 @@ def normalize_ioc_value(
 def create_ioc(
         db: Session,
         request: CreateIOCRequest,
-        created_by: str):
+        created_by: str,
+        tenant_id: int):
 
     value = normalize_ioc_value(
         request.type,
@@ -43,6 +44,7 @@ def create_ioc(
     )
 
     ioc = IOC(
+        tenant_id=tenant_id,
         type=request.type,
         value=value,
         description=request.description,
@@ -66,12 +68,10 @@ def create_ioc(
 def update_ioc(
         db: Session,
         ioc_id: int,
-        request: UpdateIOCRequest):
+        request: UpdateIOCRequest,
+        tenant_id: int):
 
-    ioc = get_ioc(
-        db,
-        ioc_id
-    )
+    ioc = get_ioc(db, ioc_id, tenant_id)
 
     if not ioc:
 
@@ -110,12 +110,10 @@ def update_ioc(
 
 def delete_ioc(
         db: Session,
-        ioc_id: int):
+        ioc_id: int,
+        tenant_id: int):
 
-    ioc = get_ioc(
-        db,
-        ioc_id
-    )
+    ioc = get_ioc(db, ioc_id, tenant_id)
 
     if not ioc:
 
@@ -130,10 +128,11 @@ def delete_ioc(
 
 def list_iocs(
         db: Session,
+        tenant_id: int,
         ioc_type: str = None,
         active_only: bool = False):
 
-    query = db.query(IOC)
+    query = db.query(IOC).filter(IOC.tenant_id == tenant_id)
 
     if ioc_type:
 
@@ -154,11 +153,13 @@ def list_iocs(
 
 def search_ioc(
         db: Session,
+        tenant_id: int,
         query_text: str):
 
     text = f"%{query_text.lower()}%"
 
     return db.query(IOC).filter(
+        IOC.tenant_id == tenant_id,
         or_(
             IOC.value.ilike(text),
             IOC.description.ilike(text),
@@ -171,26 +172,26 @@ def search_ioc(
 
 def get_ioc(
         db: Session,
-        ioc_id: int):
+        ioc_id: int,
+        tenant_id: int):
 
     return db.query(IOC).filter(
-        IOC.id == ioc_id
+        IOC.id == ioc_id,
+        IOC.tenant_id == tenant_id,
     ).first()
 
 
 def find_active_ioc(
         db: Session,
         ioc_type: str,
-        value: str):
+        value: str,
+        tenant_id: int):
 
-    normalized = normalize_ioc_value(
-        ioc_type,
-        value
-    )
-
+    normalized = normalize_ioc_value(ioc_type, value)
     now = datetime.utcnow()
 
     return db.query(IOC).filter(
+        IOC.tenant_id == tenant_id,
         IOC.type == ioc_type,
         IOC.value == normalized,
         IOC.is_active == True,
@@ -237,17 +238,14 @@ def match_ioc_value(
         ioc_type: str,
         value: str,
         artifact: str,
-        agent_id: int):
+        agent_id: int,
+        tenant_id: int):
 
     if not value:
 
         return None
 
-    ioc = find_active_ioc(
-        db,
-        ioc_type,
-        value
-    )
+    ioc = find_active_ioc(db, ioc_type, value, tenant_id)
 
     if not ioc:
 
@@ -264,146 +262,78 @@ def match_ioc_value(
 def match_process_iocs(
         db: Session,
         process,
-        agent_id: int):
+        agent_id: int,
+        tenant_id: int):
 
-    match_ioc_value(
-        db,
-        "SHA256",
-        process.sha256,
-        f"process hash for {process.process_name}",
-        agent_id
-    )
-
-    match_ioc_value(
-        db,
-        "Filename",
-        process.process_name,
-        "process name",
-        agent_id
-    )
-
+    match_ioc_value(db, "SHA256", process.sha256,
+                    f"process hash for {process.process_name}", agent_id, tenant_id)
+    match_ioc_value(db, "Filename", process.process_name,
+                    "process name", agent_id, tenant_id)
     if process.exe_path:
-
-        match_ioc_value(
-            db,
-            "Filename",
-            os.path.basename(process.exe_path),
-            "process executable filename",
-            agent_id
-        )
+        match_ioc_value(db, "Filename", os.path.basename(process.exe_path),
+                        "process executable filename", agent_id, tenant_id)
 
 
 def match_network_iocs(
         db: Session,
         connection,
-        agent_id: int):
+        agent_id: int,
+        tenant_id: int):
 
     ioc_type = "IPv6" if ":" in connection.remote_ip else "IPv4"
-
-    match_ioc_value(
-        db,
-        ioc_type,
-        connection.remote_ip,
-        "remote network address",
-        agent_id
-    )
+    match_ioc_value(db, ioc_type, connection.remote_ip,
+                    "remote network address", agent_id, tenant_id)
 
 
 def match_file_iocs(
         db: Session,
         event,
-        agent_id: int):
+        agent_id: int,
+        tenant_id: int):
 
-    match_ioc_value(
-        db,
-        "SHA256",
-        getattr(
-            event,
-            "sha256",
-            None
-        ),
-        "file event sha256",
-        agent_id
-    )
-
-    match_ioc_value(
-        db,
-        "MD5",
-        getattr(
-            event,
-            "md5",
-            None
-        ),
-        "file event md5",
-        agent_id
-    )
-
-    match_ioc_value(
-        db,
-        "Filename",
-        os.path.basename(event.file_path),
-        "file event filename",
-        agent_id
-    )
+    match_ioc_value(db, "SHA256", getattr(event, "sha256", None),
+                    "file event sha256", agent_id, tenant_id)
+    match_ioc_value(db, "MD5", getattr(event, "md5", None),
+                    "file event md5", agent_id, tenant_id)
+    match_ioc_value(db, "Filename", os.path.basename(event.file_path),
+                    "file event filename", agent_id, tenant_id)
 
 
 def match_text_iocs(
         db: Session,
         text: str,
         artifact: str,
-        agent_id: int):
+        agent_id: int,
+        tenant_id: int):
 
     if not text:
-
         return
 
-    now = datetime.utcnow()
+    now  = datetime.utcnow()
     text = text.lower()
 
     iocs = db.query(IOC).filter(
-        IOC.type.in_(
-            [
-                "Domain",
-                "URL",
-                "Email"
-            ]
-        ),
+        IOC.tenant_id == tenant_id,
+        IOC.type.in_(["Domain", "URL", "Email"]),
         IOC.is_active == True,
         or_(
             IOC.expires_at == None,
-            IOC.expires_at > now
+            IOC.expires_at > now,
         )
     ).all()
 
     for ioc in iocs:
-
         if ioc.value and ioc.value in text:
-
-            create_ioc_match_alert(
-                db,
-                ioc,
-                artifact,
-                agent_id
-            )
+            create_ioc_match_alert(db, ioc, artifact, agent_id)
 
 
 def match_persistence_iocs(
         db: Session,
         entry,
-        agent_id: int):
+        agent_id: int,
+        tenant_id: int):
 
-    match_ioc_value(
-        db,
-        "Registry",
-        entry.entry_path,
-        "persistence entry path",
-        agent_id
-    )
-
-    match_ioc_value(
-        db,
-        "Filename",
-        os.path.basename(entry.entry_path or ""),
-        "persistence entry filename",
-        agent_id
-    )
+    match_ioc_value(db, "Registry", entry.entry_path,
+                    "persistence entry path", agent_id, tenant_id)
+    match_ioc_value(db, "Filename", os.path.basename(entry.entry_path or ""),
+                    "persistence entry filename", agent_id, tenant_id)

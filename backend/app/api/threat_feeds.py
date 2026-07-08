@@ -95,7 +95,10 @@ def enrich_ioc_endpoint(
         db: Session = Depends(get_db)):
     """Enqueue enrichment for a single IOC. Poll GET /tasks/{task_id} for status."""
     from app.tasks.enrichment import enrich_ioc_task
-    ioc = db.query(IOC).filter(IOC.id == ioc_id).first()
+    ioc = db.query(IOC).filter(
+        IOC.id == ioc_id,
+        IOC.tenant_id == current_user.tenant_id,
+    ).first()
     if not ioc:
         raise HTTPException(status_code=404, detail="IOC not found")
     ioc.enrichment_status = "pending"

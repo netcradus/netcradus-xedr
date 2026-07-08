@@ -112,18 +112,10 @@ def save_processes(
 
         db.add(db_process)
 
-        match_process_iocs(
-            db,
-            process,
-            agent.id
-        )
+        match_process_iocs(db, process, agent.id, agent.tenant_id)
 
-        match_text_iocs(
-            db,
-            process.cmdline,
-            "process command line",
-            agent.id
-        )
+        match_text_iocs(db, process.cmdline, "process command line",
+                        agent.id, agent.tenant_id)
 
         detect_encoded_powershell(
 
@@ -259,11 +251,7 @@ def save_connections(
 
         db.add(db_conn)
 
-        match_network_iocs(
-            db,
-            conn,
-            agent.id
-        )
+        match_network_iocs(db, conn, agent.id, agent.tenant_id)
 
         detect_reverse_shell(
             db,
@@ -318,11 +306,7 @@ def save_file_events(
 
         db.add(db_event)
 
-        match_file_iocs(
-            db,
-            event,
-            agent.id
-        )
+        match_file_iocs(db, event, agent.id, agent.tenant_id)
 
         detect_malware_drop(
 
@@ -392,11 +376,7 @@ def save_persistence(
 
         db.add(db_entry)
 
-        match_persistence_iocs(
-            db,
-            entry,
-            agent.id
-        )
+        match_persistence_iocs(db, entry, agent.id, agent.tenant_id)
 
         detect_registry_persistence(
 

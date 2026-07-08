@@ -196,7 +196,9 @@ def lookup_ioc(db: Session, tenant_id: int, ioc_type: str, value: str) -> dict:
 def _enrich_worker(ioc_id: int, tenant_id: int):
     db = SessionLocal()
     try:
-        ioc = db.query(IOC).filter(IOC.id == ioc_id).first()
+        ioc = db.query(IOC).filter(
+            IOC.id == ioc_id, IOC.tenant_id == tenant_id
+        ).first()
         if not ioc:
             return
         result = lookup_ioc(db, tenant_id, ioc.type, ioc.value)
@@ -206,7 +208,9 @@ def _enrich_worker(ioc_id: int, tenant_id: int):
         db.commit()
     except Exception as exc:
         try:
-            ioc = db.query(IOC).filter(IOC.id == ioc_id).first()
+            ioc = db.query(IOC).filter(
+                IOC.id == ioc_id, IOC.tenant_id == tenant_id
+            ).first()
             if ioc:
                 ioc.enrichment_status = "failed"
                 db.commit()

@@ -152,18 +152,16 @@ def block_ip(
         current_user
     )
 
-    command = create_command(
+    command = create_command(db, "block_ip", request.ip_address, request.agent_id)
 
-        db,
-
-        "block_ip",
-
-        request.ip_address,
-
-        request.agent_id
-
-    )
-
+    try:
+        from app.services.audit_service import log_event
+        log_event(db, tenant_id=current_user.tenant_id, action="EXECUTE_COMMAND",
+                  user_id=current_user.id, user_name=current_user.name,
+                  resource_type="Command", resource_id=command.id,
+                  details=f"block_ip {request.ip_address} on agent {request.agent_id}")
+    except Exception:
+        pass
     return command
 
 @router.post("/quarantine-file")
@@ -178,18 +176,16 @@ def quarantine_file(
         current_user
     )
 
-    command = create_command(
+    command = create_command(db, "quarantine_file", request.file_path, request.agent_id)
 
-        db,
-
-        "quarantine_file",
-
-        request.file_path,
-
-        request.agent_id
-
-    )
-
+    try:
+        from app.services.audit_service import log_event
+        log_event(db, tenant_id=current_user.tenant_id, action="EXECUTE_COMMAND",
+                  user_id=current_user.id, user_name=current_user.name,
+                  resource_type="Command", resource_id=command.id,
+                  details=f"quarantine_file {request.file_path} on agent {request.agent_id}")
+    except Exception:
+        pass
     return command
 
 @router.post("/restore-host")

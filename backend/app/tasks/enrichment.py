@@ -26,7 +26,10 @@ def sync_iocs_task(self, tenant_id: int):
     try:
         pending = (
             db.query(IOC)
-            .filter(IOC.enrichment_status.notin_(["done"]))
+            .filter(
+                IOC.tenant_id == tenant_id,
+                IOC.enrichment_status.notin_(["done"]),
+            )
             .all()
         )
         queued = 0
