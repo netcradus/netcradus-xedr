@@ -108,11 +108,12 @@ def update_heartbeat(
     return True
 
 
-def update_offline_agents(db):
+def update_offline_agents(db) -> list:
     """
     System-level background task — intentionally cross-tenant.
     Marks agents offline when their heartbeat has not been received for >30 s.
-    Only reads agents currently marked Online; no data is returned to any user.
+    Returns the list of agents that were just transitioned to Offline so callers
+    can fire per-tenant notifications.
     """
     threshold = datetime.utcnow() - timedelta(seconds=30)
 
@@ -122,8 +123,11 @@ def update_offline_agents(db):
         .all()
     )
 
+    newly_offline = []
     for agent in agents:
         if agent.last_seen and agent.last_seen < threshold:
             agent.status = "Offline"
+            newly_offline.append(agent)
 
     db.commit()
+    return newly_offline

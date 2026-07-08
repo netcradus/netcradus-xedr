@@ -38,11 +38,8 @@ from app.middleware.latency import LatencyMiddleware
 
 from app.services.role_service import seed_roles
 from app.services.tenant_service import create_default_tenant
-from app.services.agent_service import update_offline_agents
 from app.services.platform_admin_service import seed_platform_admin
 from app.services.detection_rule_seed import seed_detection_rules
-import threading
-import time
 
 app = FastAPI(title="NetcradXDR", version="1.0.0")
 
@@ -101,19 +98,8 @@ def startup():
     seed_detection_rules(db)
     db.close()
 
-    threading.Thread(target=_offline_monitor, daemon=True).start()
 
 
 @app.get("/")
 def root():
     return {"message": "NetcradXDR Backend Running"}
-
-
-def _offline_monitor():
-    while True:
-        db = SessionLocal()
-        try:
-            update_offline_agents(db)
-        finally:
-            db.close()
-        time.sleep(60)
