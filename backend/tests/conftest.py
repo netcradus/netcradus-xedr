@@ -38,6 +38,7 @@ import app.models.alert
 import app.models.audit_log
 import app.models.command
 import app.models.detection_rule
+import app.models.detection_rule_condition
 import app.models.evidence
 import app.models.file_telemetry
 import app.models.generated_report

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -8,27 +8,37 @@ from sqlalchemy.orm import Session
 from app.core.permissions import analyst_required, admin_required
 from app.database.db import get_db
 from app.models.detection_rule import DetectionRule
+from app.models.detection_rule_condition import DetectionRuleCondition
 from app.models.user import User
+from app.services.audit_service import log_event
+from app.services.rule_engine import invalidate_rule_cache
 
 router = APIRouter(prefix="/detection-rules", tags=["Detection Rules"])
 
-VALID_RULE_TYPES = {"process", "network", "file", "persistence"}
+VALID_RULE_TYPES = {"process", "network", "file", "persistence", "log"}
 VALID_OPERATORS  = {
     "contains", "not_contains", "equals", "not_equals",
     "starts_with", "ends_with", "regex", "in_list",
     "greater_than", "less_than",
 }
 VALID_SEVERITIES = {"Low", "Medium", "High", "Critical"}
+VALID_LOGICS     = {"AND", "OR"}
+
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
+
+class ConditionPayload(BaseModel):
+    field:    str
+    operator: str
+    value:    str
+
 
 class RulePayload(BaseModel):
     name:            str
     description:     Optional[str] = None
     rule_type:       str
-    field:           str
-    operator:        str
-    value:           str
+    logic:           str = "OR"
+    conditions:      List[ConditionPayload]
     severity:        str = "Medium"
     mitre_tactic:    Optional[str] = None
     mitre_technique: Optional[str] = None
@@ -39,9 +49,8 @@ class RuleUpdate(BaseModel):
     name:            Optional[str] = None
     description:     Optional[str] = None
     rule_type:       Optional[str] = None
-    field:           Optional[str] = None
-    operator:        Optional[str] = None
-    value:           Optional[str] = None
+    logic:           Optional[str] = None
+    conditions:      Optional[List[ConditionPayload]] = None
     severity:        Optional[str] = None
     mitre_tactic:    Optional[str] = None
     mitre_technique: Optional[str] = None
@@ -50,15 +59,18 @@ class RuleUpdate(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _condition_to_dict(c: DetectionRuleCondition) -> dict:
+    return {"field": c.field, "operator": c.operator, "value": c.value, "sort_order": c.sort_order}
+
+
 def _rule_to_dict(r: DetectionRule) -> dict:
     return {
         "id":              r.id,
         "name":            r.name,
         "description":     r.description,
         "rule_type":       r.rule_type,
-        "field":           r.field,
-        "operator":        r.operator,
-        "value":           r.value,
+        "logic":           r.logic,
+        "conditions":      [_condition_to_dict(c) for c in r.conditions],
         "severity":        r.severity,
         "mitre_tactic":    r.mitre_tactic,
         "mitre_technique": r.mitre_technique,
@@ -84,6 +96,32 @@ def _get_rule_or_404(db: Session, rule_id: int, tenant_id: int) -> DetectionRule
     return rule
 
 
+def _validate_payload(rule_type, logic, operator_list, severity):
+    if rule_type not in VALID_RULE_TYPES:
+        raise HTTPException(status_code=422, detail=f"rule_type must be one of {sorted(VALID_RULE_TYPES)}")
+    if logic not in VALID_LOGICS:
+        raise HTTPException(status_code=422, detail=f"logic must be AND or OR")
+    for op in operator_list:
+        if op not in VALID_OPERATORS:
+            raise HTTPException(status_code=422, detail=f"operator '{op}' is invalid")
+    if severity not in VALID_SEVERITIES:
+        raise HTTPException(status_code=422, detail=f"severity must be one of {sorted(VALID_SEVERITIES)}")
+
+
+def _replace_conditions(db: Session, rule: DetectionRule, conditions: List[ConditionPayload]):
+    for c in rule.conditions:
+        db.delete(c)
+    db.flush()
+    for i, cond in enumerate(conditions):
+        db.add(DetectionRuleCondition(
+            rule_id=rule.id,
+            field=cond.field,
+            operator=cond.operator,
+            value=cond.value,
+            sort_order=i,
+        ))
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("/")
@@ -91,7 +129,6 @@ def list_rules(
     current_user: User = Depends(analyst_required),
     db: Session = Depends(get_db),
 ):
-    """List all detection rules visible to this tenant (own + global system rules)."""
     rules = (
         db.query(DetectionRule)
         .filter(
@@ -110,21 +147,18 @@ def create_rule(
     current_user: User = Depends(admin_required),
     db: Session = Depends(get_db),
 ):
-    """Create a new detection rule scoped to the current tenant."""
-    if payload.rule_type not in VALID_RULE_TYPES:
-        raise HTTPException(status_code=422, detail=f"rule_type must be one of {sorted(VALID_RULE_TYPES)}")
-    if payload.operator not in VALID_OPERATORS:
-        raise HTTPException(status_code=422, detail=f"operator must be one of {sorted(VALID_OPERATORS)}")
-    if payload.severity not in VALID_SEVERITIES:
-        raise HTTPException(status_code=422, detail=f"severity must be one of {sorted(VALID_SEVERITIES)}")
+    if not payload.conditions:
+        raise HTTPException(status_code=422, detail="At least one condition is required")
+    _validate_payload(
+        payload.rule_type, payload.logic,
+        [c.operator for c in payload.conditions], payload.severity,
+    )
 
     rule = DetectionRule(
         name=payload.name,
         description=payload.description,
         rule_type=payload.rule_type,
-        field=payload.field,
-        operator=payload.operator,
-        value=payload.value,
+        logic=payload.logic,
         severity=payload.severity,
         mitre_tactic=payload.mitre_tactic,
         mitre_technique=payload.mitre_technique,
@@ -135,8 +169,28 @@ def create_rule(
         updated_at=datetime.utcnow(),
     )
     db.add(rule)
+    db.flush()
+    for i, cond in enumerate(payload.conditions):
+        db.add(DetectionRuleCondition(
+            rule_id=rule.id,
+            field=cond.field,
+            operator=cond.operator,
+            value=cond.value,
+            sort_order=i,
+        ))
     db.commit()
     db.refresh(rule)
+
+    invalidate_rule_cache(current_user.tenant_id)
+    log_event(
+        db, current_user.tenant_id,
+        action="RULE_CREATED",
+        user_id=current_user.id,
+        user_name=current_user.name,
+        resource_type="detection_rule",
+        resource_id=rule.id,
+        details=f"Created rule '{rule.name}' ({rule.rule_type})",
+    )
     return _rule_to_dict(rule)
 
 
@@ -147,39 +201,64 @@ def update_rule(
     current_user: User = Depends(admin_required),
     db: Session = Depends(get_db),
 ):
-    """Update a detection rule. System rules can only have their enabled state changed."""
     rule = _get_rule_or_404(db, rule_id, current_user.tenant_id)
 
     if rule.is_system:
-        # Allow toggling enabled only; other fields are read-only for system rules
+        # System rules: only toggle enabled
         if payload.enabled is not None:
             rule.enabled = payload.enabled
             rule.updated_at = datetime.utcnow()
             db.commit()
+            invalidate_rule_cache(current_user.tenant_id)
+            log_event(
+                db, current_user.tenant_id,
+                action="RULE_UPDATED",
+                user_id=current_user.id,
+                user_name=current_user.name,
+                resource_type="detection_rule",
+                resource_id=rule.id,
+                details=f"Set enabled={rule.enabled} on system rule '{rule.name}'",
+            )
         return _rule_to_dict(rule)
 
-    # Tenant-owned rule — validate and update any provided fields
-    if payload.rule_type is not None:
-        if payload.rule_type not in VALID_RULE_TYPES:
+    # Validate any fields being changed
+    new_type     = payload.rule_type or rule.rule_type
+    new_logic    = payload.logic or rule.logic
+    new_severity = payload.severity or rule.severity
+    new_ops      = [c.operator for c in payload.conditions] if payload.conditions else []
+    if new_ops:
+        _validate_payload(new_type, new_logic, new_ops, new_severity)
+    else:
+        if payload.rule_type and payload.rule_type not in VALID_RULE_TYPES:
             raise HTTPException(status_code=422, detail="Invalid rule_type")
-        rule.rule_type = payload.rule_type
-    if payload.operator is not None:
-        if payload.operator not in VALID_OPERATORS:
-            raise HTTPException(status_code=422, detail="Invalid operator")
-        rule.operator = payload.operator
-    if payload.severity is not None:
-        if payload.severity not in VALID_SEVERITIES:
+        if payload.logic and payload.logic not in VALID_LOGICS:
+            raise HTTPException(status_code=422, detail="Invalid logic")
+        if payload.severity and payload.severity not in VALID_SEVERITIES:
             raise HTTPException(status_code=422, detail="Invalid severity")
-        rule.severity = payload.severity
 
-    for attr in ("name", "description", "field", "value", "mitre_tactic", "mitre_technique", "enabled"):
+    for attr in ("name", "description", "rule_type", "logic", "severity",
+                 "mitre_tactic", "mitre_technique", "enabled"):
         v = getattr(payload, attr)
         if v is not None:
             setattr(rule, attr, v)
 
+    if payload.conditions is not None:
+        _replace_conditions(db, rule, payload.conditions)
+
     rule.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rule)
+
+    invalidate_rule_cache(current_user.tenant_id)
+    log_event(
+        db, current_user.tenant_id,
+        action="RULE_UPDATED",
+        user_id=current_user.id,
+        user_name=current_user.name,
+        resource_type="detection_rule",
+        resource_id=rule.id,
+        details=f"Updated rule '{rule.name}'",
+    )
     return _rule_to_dict(rule)
 
 
@@ -189,11 +268,21 @@ def toggle_rule(
     current_user: User = Depends(admin_required),
     db: Session = Depends(get_db),
 ):
-    """Flip the enabled state of a detection rule."""
     rule = _get_rule_or_404(db, rule_id, current_user.tenant_id)
     rule.enabled = not rule.enabled
     rule.updated_at = datetime.utcnow()
     db.commit()
+
+    invalidate_rule_cache(current_user.tenant_id)
+    log_event(
+        db, current_user.tenant_id,
+        action="RULE_TOGGLED",
+        user_id=current_user.id,
+        user_name=current_user.name,
+        resource_type="detection_rule",
+        resource_id=rule.id,
+        details=f"Toggled rule '{rule.name}' → enabled={rule.enabled}",
+    )
     return {"id": rule.id, "enabled": rule.enabled}
 
 
@@ -203,9 +292,21 @@ def delete_rule(
     current_user: User = Depends(admin_required),
     db: Session = Depends(get_db),
 ):
-    """Delete a detection rule. System rules cannot be deleted."""
     rule = _get_rule_or_404(db, rule_id, current_user.tenant_id)
     if rule.is_system:
         raise HTTPException(status_code=403, detail="System rules cannot be deleted — disable them instead")
+
+    rule_name = rule.name
     db.delete(rule)
     db.commit()
+
+    invalidate_rule_cache(current_user.tenant_id)
+    log_event(
+        db, current_user.tenant_id,
+        action="RULE_DELETED",
+        user_id=current_user.id,
+        user_name=current_user.name,
+        resource_type="detection_rule",
+        resource_id=rule_id,
+        details=f"Deleted rule '{rule_name}'",
+    )
