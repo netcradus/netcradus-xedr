@@ -13,9 +13,12 @@ depends_on    = None
 
 
 def upgrade():
-    # Drop the old global uniqueness constraint on value alone
-    op.drop_index("ix_iocs_value", table_name="iocs")
-    op.drop_constraint("iocs_value_key", "iocs", type_="unique")
+    # Drop old index / constraint with IF EXISTS so migration is safe on both
+    # fresh DBs (which may have idx_ioc_value from initial schema) and
+    # upgraded DBs that had ix_iocs_value / iocs_value_key.
+    op.execute("DROP INDEX IF EXISTS ix_iocs_value")
+    op.execute("DROP INDEX IF EXISTS idx_ioc_value")
+    op.execute("ALTER TABLE iocs DROP CONSTRAINT IF EXISTS iocs_value_key")
 
     # Add tenant_id column (nullable so existing rows aren't broken)
     op.add_column("iocs", sa.Column(
@@ -33,7 +36,6 @@ def upgrade():
 
 def downgrade():
     op.drop_constraint("uq_ioc_tenant_value", "iocs", type_="unique")
-    op.drop_index("ix_iocs_value", table_name="iocs")
+    op.execute("DROP INDEX IF EXISTS ix_iocs_value")
     op.drop_column("iocs", "tenant_id")
-    op.create_index("ix_iocs_value", "iocs", ["value"], unique=True)
-    op.create_unique_constraint("iocs_value_key", "iocs", ["value"])
+    op.execute("CREATE UNIQUE INDEX idx_ioc_value ON iocs (value)")
