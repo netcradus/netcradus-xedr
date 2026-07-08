@@ -14,4 +14,6 @@ class Evidence(Base):
     # log_snippet | ioc_ref | artifact | network_capture | command_output | note
     evidence_type = Column(String(50), default="note")
     content       = Column(Text, nullable=True)
+    storage_key   = Column(String(500), nullable=True)  # object storage path for binary artifacts
+    file_name     = Column(String(500), nullable=True)  # original upload filename
     created_at    = Column(DateTime, default=datetime.utcnow)

@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -12,7 +12,8 @@ from app.schemas.agent_schema import AgentRegister
 from app.schemas.command_schema import CommandCompleteRequest
 from app.services.agent_service import register_agent, update_heartbeat
 from app.services.agent_version_service import (
-    get_current_version, list_versions, save_version, set_current, get_file_path,
+    get_current_version, list_versions, save_version, set_current,
+    get_file_path, get_file_bytes, get_presigned_url,
 )
 from app.models.command import Command
 from app.models.agent import Agent
@@ -211,14 +212,19 @@ def download_agent(
     else:
         raise HTTPException(status_code=401, detail="agent_token query param required")
 
-    path = get_file_path(db, version)
-    if not path:
-        raise HTTPException(404, f"Package for version {version!r} not found")
+    # Redirect to presigned URL when on S3 — avoids routing large binaries through the app
+    url = get_presigned_url(db, version, expiry=300)
+    if url:
+        return RedirectResponse(url)
 
-    return FileResponse(
-        path,
+    result = get_file_bytes(db, version)
+    if not result:
+        raise HTTPException(404, f"Package for version {version!r} not found")
+    data, filename = result
+    return Response(
+        content=data,
         media_type="application/zip",
-        filename=os.path.basename(path),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

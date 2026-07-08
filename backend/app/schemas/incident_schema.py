@@ -36,6 +36,8 @@ class EvidenceResponse(BaseModel):
     title: str
     evidence_type: str
     content: Optional[str] = None
+    storage_key: Optional[str] = None
+    file_name: Optional[str] = None
     created_at: datetime
 
     class Config:

@@ -11,7 +11,8 @@ class GeneratedReport(Base):
     report_type  = Column(String(50), nullable=False)   # daily_soc | weekly_exec | monthly_compliance
     period_start = Column(DateTime, nullable=False)
     period_end   = Column(DateTime, nullable=False)
-    pdf_data     = Column(LargeBinary, nullable=True)
+    pdf_data     = Column(LargeBinary, nullable=True)   # legacy — new records use storage_key
+    storage_key  = Column(String(500), nullable=True)   # object storage path
     file_size    = Column(Integer, nullable=True)        # bytes
     generated_at = Column(DateTime, default=datetime.utcnow)
     triggered_by = Column(String(50), default="schedule")  # schedule | manual | api

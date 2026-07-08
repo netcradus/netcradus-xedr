@@ -48,8 +48,17 @@ class Settings:
         "http://localhost:5173,http://127.0.0.1:5173"
     )
 
-    # Directory where agent update packages are stored on disk
+    # Directory where agent update packages are stored on disk (legacy local fallback)
     agent_updates_dir = os.getenv("AGENT_UPDATES_DIR", "./agent_packages")
+
+    # Object storage (S3-compatible: AWS S3 / MinIO / Cloudflare R2 / DigitalOcean Spaces)
+    # Leave STORAGE_BUCKET unset to fall back to local filesystem (dev/single-node mode)
+    storage_endpoint_url  = os.getenv("STORAGE_ENDPOINT_URL", "")    # empty = AWS default
+    storage_bucket        = os.getenv("STORAGE_BUCKET", "")           # empty = local fallback
+    storage_region        = os.getenv("STORAGE_REGION", "us-east-1")
+    aws_access_key_id     = os.getenv("AWS_ACCESS_KEY_ID", "")
+    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    storage_local_dir     = os.getenv("STORAGE_LOCAL_DIR", "./local_storage")
 
     # Redis / Celery broker
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")

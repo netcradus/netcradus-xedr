@@ -42,12 +42,11 @@ def save_version(
     release_notes: Optional[str],
     uploaded_by: str,
 ) -> AgentVersion:
-    """Store the package file on disk and register/update the version row."""
+    """Store the package file in object storage and register/update the version row."""
+    from app.core.storage import get_storage
     checksum  = hashlib.sha256(file_bytes).hexdigest()
     safe_name = f"{version}-{platform}.zip"
-    dest      = os.path.join(_updates_dir(), safe_name)
-    with open(dest, "wb") as f:
-        f.write(file_bytes)
+    get_storage().put(f"agent-packages/{safe_name}", file_bytes, "application/zip")
 
     av = db.query(AgentVersion).filter(AgentVersion.version == version).first()
     if av:
@@ -87,9 +86,42 @@ def set_current(db: Session, version: str) -> Optional[AgentVersion]:
 
 
 def get_file_path(db: Session, version: str) -> Optional[str]:
-    """Return the filesystem path for a version's package, or None if missing."""
+    """Return the local filesystem path for a package (legacy fallback)."""
     av = db.query(AgentVersion).filter(AgentVersion.version == version).first()
     if not av:
         return None
     path = os.path.join(_updates_dir(), av.filename)
     return path if os.path.isfile(path) else None
+
+
+def get_file_bytes(db: Session, version: str) -> Optional[tuple[bytes, str]]:
+    """
+    Return (bytes, filename) for a version's package, or None if not found.
+
+    Checks object storage first; falls back to the legacy local disk path so
+    packages uploaded before the storage migration remain downloadable.
+    """
+    from app.core.storage import get_storage
+    av = db.query(AgentVersion).filter(AgentVersion.version == version).first()
+    if not av:
+        return None
+    try:
+        data = get_storage().get(f"agent-packages/{av.filename}")
+        return data, av.filename
+    except Exception:
+        pass
+    # Legacy fallback: package was written directly to agent_updates_dir
+    legacy = os.path.join(_updates_dir(), av.filename)
+    if os.path.isfile(legacy):
+        with open(legacy, "rb") as f:
+            return f.read(), av.filename
+    return None
+
+
+def get_presigned_url(db: Session, version: str, expiry: int = 300) -> Optional[str]:
+    """Return a presigned download URL for S3 backend, or None in local mode."""
+    from app.core.storage import get_storage
+    av = db.query(AgentVersion).filter(AgentVersion.version == version).first()
+    if not av:
+        return None
+    return get_storage().presigned_url(f"agent-packages/{av.filename}", expiry=expiry)

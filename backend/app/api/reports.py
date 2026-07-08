@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -204,16 +204,35 @@ def download_report(
     current_user: User = Depends(analyst_required),
     db: Session = Depends(get_db),
 ):
-    """Stream a generated PDF. Returns 404 if not found or PDF not yet available."""
+    """Download a generated PDF via object storage (presigned redirect) or legacy DB blob."""
     r = db.query(GeneratedReport).filter_by(id=report_id, tenant_id=current_user.tenant_id).first()
     if not r:
         raise HTTPException(404, "Report not found")
-    if r.status != "done" or not r.pdf_data:
+    if r.status != "done":
         raise HTTPException(404, "PDF not yet available — status: " + r.status)
 
     filename = f"{r.report_type}_{r.period_start.strftime('%Y%m%d')}.pdf"
-    return Response(
-        content=r.pdf_data,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+
+    if r.storage_key:
+        from app.core.storage import get_storage
+        storage = get_storage()
+        url = storage.presigned_url(r.storage_key, expiry=300)
+        if url:
+            return RedirectResponse(url)
+        # Local fallback — stream bytes through app server
+        data = storage.get(r.storage_key)
+        return Response(
+            content=data,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # Legacy records that still have pdf_data in the DB
+    if r.pdf_data:
+        return Response(
+            content=r.pdf_data,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    raise HTTPException(404, "PDF not yet available")

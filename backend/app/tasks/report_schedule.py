@@ -145,7 +145,12 @@ def generate_scheduled_report_task(
     try:
         pdf_bytes = generate_report(db, tenant_id, report_type, period_start, period_end)
 
-        record.pdf_data     = pdf_bytes
+        from app.core.storage import get_storage
+        storage     = get_storage()
+        storage_key = f"reports/{tenant_id}/{record_id}_{report_type}_{period_start.strftime('%Y%m%d')}.pdf"
+        storage.put(storage_key, pdf_bytes, "application/pdf")
+
+        record.storage_key  = storage_key
         record.file_size    = len(pdf_bytes)
         record.status       = "done"
         db.commit()

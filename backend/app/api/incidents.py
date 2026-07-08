@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.permissions import analyst_required, admin_required
@@ -208,6 +210,35 @@ def add_evidence(
     return incident_service.add_evidence(
         db, incident_id, current_user.id, current_user.name,
         body.title, body.evidence_type, body.content,
+    )
+
+
+@router.post("/{incident_id}/evidence/upload", response_model=EvidenceResponse, status_code=201)
+async def upload_evidence_file(
+    incident_id: int,
+    title: str = Form(...),
+    evidence_type: str = Form(default="artifact"),
+    file: UploadFile = File(...),
+    current_user: User = Depends(analyst_required),
+    db: Session = Depends(get_db),
+):
+    """Upload a binary artifact (pcap, log archive, memory dump, etc.) as evidence."""
+    if not incident_service.get_incident(db, incident_id, current_user.tenant_id):
+        raise HTTPException(status_code=404, detail="Incident not found")
+    valid_types = {"log_snippet", "ioc_ref", "artifact", "network_capture", "command_output", "note"}
+    if evidence_type not in valid_types:
+        raise HTTPException(status_code=422, detail=f"evidence_type must be one of {valid_types}")
+
+    from app.core.storage import get_storage
+    file_bytes = await file.read()
+    ts  = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    key = f"evidence/{incident_id}/{ts}_{file.filename}"
+    get_storage().put(key, file_bytes, file.content_type or "application/octet-stream")
+
+    return incident_service.add_evidence(
+        db, incident_id, current_user.id, current_user.name,
+        title, evidence_type, content=None,
+        storage_key=key, file_name=file.filename,
     )
 
 

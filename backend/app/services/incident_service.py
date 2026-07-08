@@ -297,6 +297,8 @@ def add_evidence(
     title: str,
     evidence_type: str,
     content: str | None,
+    storage_key: str | None = None,
+    file_name: str | None = None,
 ) -> Evidence:
     ev = Evidence(
         incident_id=incident_id,
@@ -305,6 +307,8 @@ def add_evidence(
         title=title,
         evidence_type=evidence_type,
         content=content,
+        storage_key=storage_key,
+        file_name=file_name,
     )
     db.add(ev)
     db.commit()
