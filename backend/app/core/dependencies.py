@@ -44,4 +44,17 @@ def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
+    # Enforce tenant-level MFA policy.  SuperAdmin / PlatformAdmin are cross-tenant
+    # service roles that are exempt — they can still enroll MFA voluntarily.
+    if (
+        getattr(user.tenant, "require_mfa", False)
+        and not user.mfa_enabled
+        and user.role.name not in ("SuperAdmin", "PlatformAdmin")
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="MFA_REQUIRED",
+            headers={"X-MFA-Setup-Required": "true"},
+        )
+
     return user

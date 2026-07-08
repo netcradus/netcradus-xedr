@@ -24,4 +24,8 @@ class Tenant(Base):
     # Optional expiry for time-limited plans / trials
     plan_expires_at = Column(DateTime, nullable=True)
 
+    # When True, every user in this tenant must have MFA enabled before they
+    # can access any authenticated endpoint.  Enforced in get_current_user().
+    require_mfa = Column(Boolean, default=False, nullable=False)
+
     created_at = Column(DateTime, default=datetime.utcnow)

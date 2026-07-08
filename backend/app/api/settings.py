@@ -36,6 +36,10 @@ class ChangePasswordPayload(BaseModel):
     new_password: str
 
 
+class SecuritySettingsPayload(BaseModel):
+    require_mfa: bool
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _user_dict(u: User) -> dict:
@@ -50,10 +54,11 @@ def _user_dict(u: User) -> dict:
 
 def _tenant_dict(t: Tenant) -> dict:
     return {
-        "id": t.id,
-        "name": t.name,
-        "api_key": t.api_key,
-        "is_active": t.is_active,
+        "id":          t.id,
+        "name":        t.name,
+        "api_key":     t.api_key,
+        "is_active":   t.is_active,
+        "require_mfa": getattr(t, "require_mfa", False),
     }
 
 
@@ -207,6 +212,47 @@ def toggle_user_status(
     db.commit()
     db.refresh(user)
     return _user_dict(user)
+
+
+# ── Security policy ──────────────────────────────────────────────────────────
+
+@router.get("/security")
+def get_security_settings(
+    current_user: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    """Return the tenant's security policy (MFA enforcement, etc.)."""
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    return {"require_mfa": getattr(tenant, "require_mfa", False)}
+
+
+@router.put("/security")
+def update_security_settings(
+    payload: SecuritySettingsPayload,
+    current_user: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    """Enable or disable mandatory MFA for all users in this tenant."""
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    tenant.require_mfa = payload.require_mfa
+    db.commit()
+
+    try:
+        from app.services.audit_service import log_event
+        action = "REQUIRE_MFA_ENABLED" if payload.require_mfa else "REQUIRE_MFA_DISABLED"
+        log_event(
+            db, tenant_id=current_user.tenant_id, action=action,
+            user_id=current_user.id, user_name=current_user.name,
+            resource_type="Tenant", resource_id=current_user.tenant_id,
+            details=f"Tenant MFA enforcement set to {payload.require_mfa}",
+        )
+    except Exception:
+        pass
+
+    return {"require_mfa": tenant.require_mfa}
 
 
 # ── Account ───────────────────────────────────────────────────────────────────
