@@ -173,6 +173,84 @@ LOG_FIELDS = {
     "event_id":     lambda e: str(e.event_id) if e.event_id is not None else "",
 }
 
+DNS_FIELDS = {
+    "query_name":  lambda e: e.query_name,
+    "query_type":  lambda e: e.query_type,
+    "response":    lambda e: e.response or "",
+    "direction":   lambda e: e.direction,
+    "process_name":lambda e: e.process_name or "",
+    "username":    lambda e: e.username or "",
+}
+
+REGISTRY_FIELDS = {
+    "event_type":   lambda e: e.event_type,
+    "registry_key": lambda e: e.registry_key,
+    "value_name":   lambda e: e.value_name or "",
+    "value_data":   lambda e: e.value_data or "",
+    "value_type":   lambda e: e.value_type or "",
+    "process_name": lambda e: e.process_name or "",
+    "username":     lambda e: e.username or "",
+}
+
+USB_FIELDS = {
+    "event_type":  lambda e: e.event_type,
+    "device_id":   lambda e: e.device_id or "",
+    "device_name": lambda e: e.device_name or "",
+    "vendor_id":   lambda e: e.vendor_id or "",
+    "product_id":  lambda e: e.product_id or "",
+    "file_path":   lambda e: e.file_path or "",
+    "username":    lambda e: e.username or "",
+}
+
+BROWSER_EXT_FIELDS = {
+    "event_type":     lambda e: e.event_type,
+    "browser":        lambda e: e.browser,
+    "extension_id":   lambda e: e.extension_id,
+    "extension_name": lambda e: e.extension_name or "",
+    "permissions":    lambda e: e.permissions or "",
+    "from_webstore":  lambda e: str(e.from_webstore).lower(),
+    "update_url":     lambda e: e.update_url or "",
+    "username":       lambda e: e.username or "",
+}
+
+CLOUD_FIELDS = {
+    "provider":      lambda e: e.provider,
+    "event_type":    lambda e: e.event_type,
+    "resource_type": lambda e: e.resource_type or "",
+    "resource_id":   lambda e: e.resource_id or "",
+    "region":        lambda e: e.region or "",
+    "actor":         lambda e: e.actor or "",
+    "source_ip":     lambda e: e.source_ip or "",
+    "action":        lambda e: e.action or "",
+    "outcome":       lambda e: e.outcome or "",
+}
+
+K8S_FIELDS = {
+    "event_type":    lambda e: e.event_type,
+    "cluster":       lambda e: e.cluster or "",
+    "namespace":     lambda e: e.namespace or "",
+    "resource_kind": lambda e: e.resource_kind or "",
+    "resource_name": lambda e: e.resource_name or "",
+    "actor":         lambda e: e.actor or "",
+    "container":     lambda e: e.container or "",
+    "image":         lambda e: e.image or "",
+    "command":       lambda e: e.command or "",
+    "outcome":       lambda e: e.outcome or "",
+}
+
+EMAIL_FIELDS = {
+    "event_type":    lambda e: e.event_type,
+    "direction":     lambda e: e.direction,
+    "sender":        lambda e: e.sender or "",
+    "recipient":     lambda e: e.recipient or "",
+    "subject":       lambda e: e.subject or "",
+    "source_ip":     lambda e: e.source_ip or "",
+    "verdict":       lambda e: e.verdict or "",
+    "score":         lambda e: str(e.score),
+    "attachment_sha256": lambda e: e.attachment_sha256 or "",
+    "url_clicked":   lambda e: e.url_clicked or "",
+}
+
 
 # ── Multi-condition rule evaluation ───────────────────────────────────────────
 
@@ -247,4 +325,53 @@ def evaluate_log_rules(db: Session, entry, agent_id: int, tenant_id: int):
     _fire_rules(
         db, "log", LOG_FIELDS, entry, agent_id, tenant_id,
         f"{entry.log_source} log",
+    )
+
+
+def evaluate_dns_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    _fire_rules(
+        db, "dns", DNS_FIELDS, entry, agent_id, tenant_id,
+        f"DNS query {entry.query_name}",
+    )
+
+
+def evaluate_registry_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    _fire_rules(
+        db, "registry", REGISTRY_FIELDS, entry, agent_id, tenant_id,
+        f"registry {entry.event_type} {entry.registry_key}",
+    )
+
+
+def evaluate_usb_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    _fire_rules(
+        db, "usb", USB_FIELDS, entry, agent_id, tenant_id,
+        f"USB {entry.event_type} {entry.device_name or entry.device_id or ''}",
+    )
+
+
+def evaluate_browser_extension_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    _fire_rules(
+        db, "browser_extension", BROWSER_EXT_FIELDS, entry, agent_id, tenant_id,
+        f"browser extension {entry.event_type} {entry.extension_name or entry.extension_id}",
+    )
+
+
+def evaluate_cloud_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    _fire_rules(
+        db, "cloud", CLOUD_FIELDS, entry, agent_id, tenant_id,
+        f"cloud {entry.provider} {entry.event_type}",
+    )
+
+
+def evaluate_k8s_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    _fire_rules(
+        db, "k8s", K8S_FIELDS, entry, agent_id, tenant_id,
+        f"k8s {entry.event_type} {entry.resource_kind or ''}/{entry.resource_name or ''}",
+    )
+
+
+def evaluate_email_rules(db: Session, entry, agent_id: int, tenant_id: int):
+    _fire_rules(
+        db, "email", EMAIL_FIELDS, entry, agent_id, tenant_id,
+        f"email {entry.event_type} from {entry.sender or 'unknown'}",
     )

@@ -39,6 +39,17 @@ import app.models.audit_log
 import app.models.command
 import app.models.detection_rule
 import app.models.detection_rule_condition
+import app.models.dns_telemetry
+import app.models.registry_telemetry
+import app.models.usb_telemetry
+import app.models.browser_extension_telemetry
+import app.models.memory_scan_result
+import app.models.cloud_telemetry
+import app.models.k8s_telemetry
+import app.models.email_event_telemetry
+import app.models.yara_rule
+import app.models.sigma_rule
+import app.models.live_session
 import app.models.evidence
 import app.models.file_telemetry
 import app.models.generated_report

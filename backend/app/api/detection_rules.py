@@ -15,7 +15,11 @@ from app.services.rule_engine import invalidate_rule_cache
 
 router = APIRouter(prefix="/detection-rules", tags=["Detection Rules"])
 
-VALID_RULE_TYPES = {"process", "network", "file", "persistence", "log"}
+VALID_RULE_TYPES = {
+    "process", "network", "file", "persistence", "log",
+    "dns", "registry", "usb", "browser_extension",
+    "cloud", "k8s", "email",
+}
 VALID_OPERATORS  = {
     "contains", "not_contains", "equals", "not_equals",
     "starts_with", "ends_with", "regex", "in_list",

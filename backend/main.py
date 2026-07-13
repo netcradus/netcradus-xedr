@@ -52,6 +52,10 @@ from app.api.hunt import router as hunt_router
 from app.api.tasks import router as tasks_router
 from app.api.billing import router as billing_router
 from app.api.monitoring import router as monitoring_router
+from app.api.yara_rules import router as yara_rules_router
+from app.api.sigma_rules import router as sigma_rules_router
+from app.api.timeline import router as timeline_router
+from app.api.live_response import router as live_response_router
 from app.middleware.latency import LatencyMiddleware
 
 from app.services.role_service import seed_roles
@@ -139,6 +143,10 @@ v1.include_router(hunt_router)
 v1.include_router(tasks_router)
 v1.include_router(billing_router)
 v1.include_router(monitoring_router)
+v1.include_router(yara_rules_router)
+v1.include_router(sigma_rules_router)
+v1.include_router(timeline_router)
+v1.include_router(live_response_router)
 app.include_router(v1)
 
 
