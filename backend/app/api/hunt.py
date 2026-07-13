@@ -14,6 +14,7 @@ GET /hunt/username    — Cross-source search across process and log telemetry b
 GET /hunt/process     — Search process telemetry by name, cmdline, username, hash, parent
 GET /hunt/mitre       — Search alerts and detection rules by MITRE ATT&CK technique
 GET /hunt/persistence — Search persistence entries by type, name, or path
+GET /hunt/country     — Find network activity attributed to a country via IOC enrichment
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -260,4 +261,36 @@ def hunt_persistence(
         db, current_user.tenant_id,
         persistence_type=type, entry_name=entry_name, entry_path=entry_path,
         agent_id=agent_id, days=days, limit=limit,
+    )
+
+
+# ── GET /hunt/country ─────────────────────────────────────────────────────────
+
+@router.get("/country")
+def hunt_country(
+    value:    str        = Query(..., min_length=2, description="ISO-3166 country code (RU, CN) or country name"),
+    agent_id: int | None = Query(default=None),
+    days:     int        = Query(default=30),
+    limit:    int        = Query(default=_DEF_LIMIT),
+    current_user: User   = Depends(analyst_required),
+    db: Session          = Depends(get_db),
+):
+    """
+    Find network connections to/from IPs attributed to a specific country.
+
+    Works by cross-referencing AbuseIPDB country attribution stored in IOC
+    enrichment data with network telemetry.  Accepts both ISO-3166 2-letter
+    codes and full country names.
+
+    **Example queries**
+    - `?value=RU` — all connections to Russian IPs
+    - `?value=Russia` — same, using the full name
+    - `?value=CN` — connections to Chinese IPs
+    - `?value=KP` — North Korean infrastructure (APT38, Lazarus)
+    - `?value=IR` — Iranian threat actor IPs (APT33, APT34)
+    """
+    days, limit = _clamp(days, limit)
+    return hunt_service.hunt_country(
+        db, current_user.tenant_id,
+        value=value, agent_id=agent_id, days=days, limit=limit,
     )

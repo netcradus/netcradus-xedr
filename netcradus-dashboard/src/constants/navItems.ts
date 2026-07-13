@@ -10,6 +10,7 @@ export interface NavItem {
     | 'threatIntel'
     | 'playbooks'
     | 'attackGraph'
+    | 'threatHunting'
     | 'reports'
     | 'integrations'
     | 'settings'
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'threat-intelligence', label: 'Threat Intelligence', path: '/threat-intelligence', icon: 'threatIntel' },
   { id: 'playbooks', label: 'SOAR Playbooks', path: '/playbooks', icon: 'playbooks' },
   { id: 'attack-graph', label: 'Attack Graph', path: '/attack-graph', icon: 'attackGraph', isPremium: true },
+  { id: 'threat-hunting', label: 'Threat Hunting', path: '/threat-hunting', icon: 'threatHunting' },
   { id: 'ai-query', label: 'AI Query', path: '/ai-query', icon: 'aiQuery' },
   { id: 'reports', label: 'Reports & Compliance', path: '/reports', icon: 'reports' },
   { id: 'integrations', label: 'Integrations', path: '/integrations', icon: 'integrations' },

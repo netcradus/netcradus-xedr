@@ -4,6 +4,7 @@ Threat hunting service.
 All queries are scoped to a tenant (via Agent.tenant_id), support an optional
 date window, optional agent_id filter, and a hard result cap.
 """
+import json
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -13,10 +14,43 @@ from app.models.agent import Agent
 from app.models.alert import Alert
 from app.models.detection_rule import DetectionRule
 from app.models.file_telemetry import FileTelemetry
+from app.models.ioc import IOC
 from app.models.log_telemetry import LogTelemetry
 from app.models.network_telemetry import NetworkTelemetry
 from app.models.persistence_telemetry import PersistenceTelemetry
 from app.models.process_telemetry import ProcessTelemetry
+
+
+# ── Country name → ISO-3166 alpha-2 ──────────────────────────────────────────
+
+_COUNTRY_ALIASES: dict[str, str] = {
+    "russia":              "RU",
+    "china":               "CN",
+    "north korea":         "KP",
+    "northkorea":          "KP",
+    "iran":                "IR",
+    "ukraine":             "UA",
+    "united states":       "US",
+    "usa":                 "US",
+    "germany":             "DE",
+    "netherlands":         "NL",
+    "france":              "FR",
+    "uk":                  "GB",
+    "united kingdom":      "GB",
+    "brazil":              "BR",
+    "india":               "IN",
+    "romania":             "RO",
+    "nigeria":             "NG",
+    "vietnam":             "VN",
+    "pakistan":            "PK",
+    "turkey":              "TR",
+    "indonesia":           "ID",
+    "belarus":             "BY",
+    "moldova":             "MD",
+    "latvia":              "LV",
+    "lithuania":           "LT",
+    "bulgaria":            "BG",
+}
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
@@ -640,4 +674,121 @@ def hunt_mitre(
         },
         "alerts":          alert_hits,
         "detection_rules": rule_hits,
+    }
+
+
+# ── /hunt/country ─────────────────────────────────────────────────────────────
+
+def hunt_country(
+    db: Session,
+    tenant_id: int,
+    value: str,
+    agent_id: int | None,
+    days: int,
+    limit: int,
+) -> dict:
+    """
+    Find network connections attributed to a country by cross-referencing
+    AbuseIPDB country codes stored in IOC enrichment data with network telemetry.
+
+    Accepts ISO-3166 alpha-2 codes ("RU") or full country names ("Russia").
+    """
+    # Resolve country name → ISO code
+    normalized = value.strip().lower()
+    country_code = _COUNTRY_ALIASES.get(normalized, value.upper()[:2])
+    # Keep original for display if it already looks like a code
+    display_country = value
+
+    # Search IOC enrichment_data for IPs attributed to this country.
+    # AbuseIPDB stores `"country": "XX"` in the feed entry JSON.
+    # We do a text search on the serialised JSON blob.
+    ioc_pattern = f'%"country": "{country_code}"%'
+    ioc_rows = (
+        db.query(IOC.value, IOC.type)
+        .filter(
+            IOC.tenant_id == tenant_id,
+            IOC.type.in_(["IPv4", "IPv6"]),
+            IOC.enrichment_data.ilike(ioc_pattern),
+        )
+        .all()
+    )
+
+    # Build set of attributed IPs and annotate with enrichment metadata
+    attributed: dict[str, dict] = {}
+    for ioc_value, ioc_type in ioc_rows:
+        # Retrieve full IOC for enrichment detail
+        full_ioc = db.query(IOC).filter(
+            IOC.tenant_id == tenant_id,
+            IOC.value == ioc_value,
+        ).first()
+        meta: dict = {"confidence": None, "isp": None}
+        if full_ioc and full_ioc.enrichment_data:
+            try:
+                feeds = json.loads(full_ioc.enrichment_data)
+                for f in feeds:
+                    if f.get("source") == "AbuseIPDB":
+                        meta = {"confidence": f.get("confidence"), "isp": f.get("isp")}
+                        break
+            except Exception:
+                pass
+        attributed[ioc_value] = meta
+
+    if not attributed:
+        return {
+            "query":           {"value": value, "country_code": country_code, "days": days},
+            "country_code":    country_code,
+            "display_country": display_country,
+            "total":           0,
+            "unique_agents":   0,
+            "attributed_ips":  [],
+            "hits":            [],
+        }
+
+    ids    = _agent_ids(db, tenant_id, agent_id)
+    cutoff = _cutoff(days)
+    hits:  list[dict] = []
+    unique_agents: set[int] = set()
+
+    # For each attributed IP, find network connections
+    for ip, ip_meta in attributed.items():
+        rows = (
+            db.query(NetworkTelemetry, Agent.hostname)
+            .join(Agent, NetworkTelemetry.agent_id == Agent.id)
+            .filter(
+                NetworkTelemetry.agent_id.in_(ids),
+                NetworkTelemetry.timestamp >= cutoff,
+                NetworkTelemetry.remote_ip == ip,
+            )
+            .order_by(NetworkTelemetry.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        for r, hostname in rows:
+            unique_agents.add(r.agent_id)
+            hits.append({
+                "remote_ip":      ip,
+                "country_code":   country_code,
+                "isp":            ip_meta.get("isp"),
+                "abuse_score":    ip_meta.get("confidence"),
+                "agent_id":       r.agent_id,
+                "agent_hostname": hostname,
+                "local_ip":       r.local_ip,
+                "remote_port":    r.remote_port,
+                "protocol":       r.protocol,
+                "timestamp":      _ts(r.timestamp),
+            })
+        if len(hits) >= limit:
+            break
+
+    hits.sort(key=lambda x: x["timestamp"] or "", reverse=True)
+    hits = hits[:limit]
+
+    return {
+        "query":           {"value": value, "country_code": country_code, "days": days},
+        "country_code":    country_code,
+        "display_country": display_country,
+        "total":           len(hits),
+        "unique_agents":   len(unique_agents),
+        "attributed_ips":  list(attributed.keys()),
+        "hits":            hits,
     }
