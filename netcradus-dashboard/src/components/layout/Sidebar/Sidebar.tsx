@@ -9,6 +9,7 @@ import {
   Monitor,
   Radar,
   Workflow,
+  Network,
   FileText,
   Plug,
   Settings,
@@ -23,6 +24,7 @@ import {
   ChevronDown,
   Loader2,
   ShieldAlert,
+  Crown,
 } from 'lucide-react'
 import { NAV_ITEMS, type NavItem } from '@/constants/navItems'
 import { useAuthStore } from '@/store/authStore'
@@ -36,6 +38,7 @@ const ICONS: Record<NavItem['icon'], React.ElementType> = {
   assets: Monitor,
   threatIntel: Radar,
   playbooks: Workflow,
+  attackGraph: Network,
   aiQuery: Sparkles,
   reports: FileText,
   integrations: Plug,
@@ -250,7 +253,11 @@ export default function Sidebar() {
                   <Icon size={18} />
                   {item.label}
                 </span>
-                {item.badgeCount ? (
+                {item.isPremium ? (
+                  <span className="flex items-center gap-0.5 text-[10px] bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-full px-1.5 py-0.5 font-semibold">
+                    <Crown size={8} />PRO
+                  </span>
+                ) : item.badgeCount ? (
                   <span className="text-[11px] bg-red-500 text-white rounded-full px-2 py-0.5">
                     {item.badgeCount}
                   </span>

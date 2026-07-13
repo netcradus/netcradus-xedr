@@ -9,6 +9,7 @@ export interface NavItem {
     | 'assets'
     | 'threatIntel'
     | 'playbooks'
+    | 'attackGraph'
     | 'reports'
     | 'integrations'
     | 'settings'
@@ -17,6 +18,7 @@ export interface NavItem {
     | 'superAdmin'
     | 'detectionRules'
   badgeCount?: number
+  isPremium?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -27,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'assets', label: 'Assets', path: '/assets', icon: 'assets' },
   { id: 'threat-intelligence', label: 'Threat Intelligence', path: '/threat-intelligence', icon: 'threatIntel' },
   { id: 'playbooks', label: 'SOAR Playbooks', path: '/playbooks', icon: 'playbooks' },
+  { id: 'attack-graph', label: 'Attack Graph', path: '/attack-graph', icon: 'attackGraph', isPremium: true },
   { id: 'ai-query', label: 'AI Query', path: '/ai-query', icon: 'aiQuery' },
   { id: 'reports', label: 'Reports & Compliance', path: '/reports', icon: 'reports' },
   { id: 'integrations', label: 'Integrations', path: '/integrations', icon: 'integrations' },
