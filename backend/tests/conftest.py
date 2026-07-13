@@ -50,6 +50,7 @@ import app.models.email_event_telemetry
 import app.models.yara_rule
 import app.models.sigma_rule
 import app.models.live_session
+import app.models.playbook
 import app.models.evidence
 import app.models.file_telemetry
 import app.models.generated_report

@@ -56,6 +56,8 @@ from app.api.yara_rules import router as yara_rules_router
 from app.api.sigma_rules import router as sigma_rules_router
 from app.api.timeline import router as timeline_router
 from app.api.live_response import router as live_response_router
+from app.api.playbooks import router as playbooks_router
+from app.api.mitre import router as mitre_router
 from app.middleware.latency import LatencyMiddleware
 
 from app.services.role_service import seed_roles
@@ -147,6 +149,8 @@ v1.include_router(yara_rules_router)
 v1.include_router(sigma_rules_router)
 v1.include_router(timeline_router)
 v1.include_router(live_response_router)
+v1.include_router(playbooks_router)
+v1.include_router(mitre_router)
 app.include_router(v1)
 
 

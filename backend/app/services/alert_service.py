@@ -58,4 +58,11 @@ def create_alert_if_not_exists(
     except Exception:
         pass
 
+    # Evaluate SOAR playbooks
+    try:
+        from app.services.playbook_engine import evaluate_playbooks
+        evaluate_playbooks(db, alert)
+    except Exception:
+        pass
+
     return alert
