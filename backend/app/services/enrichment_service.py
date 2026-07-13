@@ -1,5 +1,7 @@
 import json
 import threading
+import time
+from datetime import datetime as _dt
 from typing import Optional
 
 import requests as http_client
@@ -127,7 +129,6 @@ def _lookup_otx(api_key: str, ioc_type: str, value: str):
     pulses     = pulse_info.get("pulses", [])
     count      = pulse_info.get("count", len(pulses))
 
-    # Collect unique adversaries and malware families across pulses
     adversaries      = list({p.get("adversary") for p in pulses if p.get("adversary")})[:5]
     malware_families = list({
         mf.get("display_name", mf.get("id", ""))
@@ -146,6 +147,247 @@ def _lookup_otx(api_key: str, ioc_type: str, value: str):
         "malware_families": malware_families,
         "tags":             tags,
         "pulses":           top_pulses,
+    }
+
+
+# ── URLHaus ───────────────────────────────────────────────────────────────────
+# Free public API — no API key required.
+# Covers: IPs/Domains (host lookup), URLs (url lookup), SHA256/MD5 (payload lookup).
+
+_UH_BASE = "https://urlhaus-api.abuse.ch/v1"
+_UH_HASH_TYPES = {"SHA256", "MD5"}
+_UH_HOST_TYPES = {"IPv4", "IPv6", "Domain"}
+_UH_URL_TYPES  = {"URL"}
+
+
+def _lookup_urlhaus(ioc_type: str, value: str):
+    try:
+        if ioc_type in _UH_HASH_TYPES:
+            field = "sha256_hash" if ioc_type == "SHA256" else "md5_hash"
+            r = http_client.post(f"{_UH_BASE}/payload/", data={field: value}, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            if data.get("query_status") == "no_results":
+                return 0, {"source": "URLHaus", "listed": False, "url_count": 0}
+            if data.get("query_status") == "ok":
+                tags = data.get("tags") or []
+                first_seen = data.get("firstseen") or data.get("first_seen")
+                return 80, {
+                    "source":     "URLHaus",
+                    "listed":     True,
+                    "url_count":  data.get("url_count", 1),
+                    "file_type":  data.get("file_type"),
+                    "signature":  data.get("signature"),
+                    "first_seen": first_seen,
+                    "tags":       tags[:5],
+                }
+            return None, None
+
+        elif ioc_type in _UH_HOST_TYPES:
+            r = http_client.post(f"{_UH_BASE}/host/", data={"host": value}, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            status = data.get("query_status", "")
+            if status in ("no_results", "invalid_host"):
+                return 0, {"source": "URLHaus", "listed": False, "url_count": 0}
+            url_count = data.get("url_count", 0)
+            urls = data.get("urls") or []
+            tags = list({t for u in urls for t in (u.get("tags") or [])})[:5]
+            score = 80 if url_count > 0 else 0
+            return score, {
+                "source":    "URLHaus",
+                "listed":    url_count > 0,
+                "url_count": url_count,
+                "tags":      tags,
+            }
+
+        elif ioc_type in _UH_URL_TYPES:
+            r = http_client.post(f"{_UH_BASE}/url/", data={"url": value}, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            status = data.get("query_status", "")
+            if status in ("no_results", "invalid_url"):
+                return 0, {"source": "URLHaus", "listed": False}
+            url_status = data.get("url_status", "")
+            score = 85 if url_status == "online" else 60
+            tags = data.get("tags") or []
+            return score, {
+                "source":     "URLHaus",
+                "listed":     True,
+                "url_status": url_status,
+                "threat":     data.get("threat", ""),
+                "tags":       tags[:5],
+            }
+    except Exception:
+        raise
+    return None, None
+
+
+# ── MalwareBazaar ─────────────────────────────────────────────────────────────
+# Free public API — hash lookup requires no API key.
+
+def _lookup_malwarebazaar(ioc_type: str, value: str):
+    if ioc_type not in ("SHA256", "MD5"):
+        return None, None
+
+    r = http_client.post(
+        "https://mb-api.abuse.ch/api/v1/",
+        data={"query": "get_info", "hash": value},
+        timeout=10,
+    )
+    r.raise_for_status()
+    data = r.json()
+    status = data.get("query_status", "")
+
+    if status in ("hash_not_found", "illegal_hash"):
+        return 0, {"source": "MalwareBazaar", "found": False}
+
+    if status == "ok":
+        entry = (data.get("data") or [{}])[0]
+        tags = entry.get("tags") or []
+        return 90, {
+            "source":         "MalwareBazaar",
+            "found":          True,
+            "signature":      entry.get("signature"),
+            "file_type":      entry.get("file_type"),
+            "first_seen":     entry.get("first_seen"),
+            "last_seen":      entry.get("last_seen"),
+            "origin_country": entry.get("origin_country"),
+            "tags":           tags[:5],
+        }
+
+    return None, None
+
+
+# ── OpenPhish ─────────────────────────────────────────────────────────────────
+# Free community feed — downloaded once per hour and cached in-process.
+
+_OPENPHISH_FEED_URL = "https://openphish.com/feed.txt"
+_OPENPHISH_TTL = 3600
+_OPENPHISH_CACHE: dict = {"urls": set(), "expires": 0.0}
+
+
+def _get_openphish_feed() -> set:
+    now = time.time()
+    if now < _OPENPHISH_CACHE["expires"] and _OPENPHISH_CACHE["urls"]:
+        return _OPENPHISH_CACHE["urls"]
+    r = http_client.get(_OPENPHISH_FEED_URL, timeout=15)
+    r.raise_for_status()
+    urls = {line.strip() for line in r.text.splitlines() if line.strip()}
+    _OPENPHISH_CACHE["urls"] = urls
+    _OPENPHISH_CACHE["expires"] = now + _OPENPHISH_TTL
+    return urls
+
+
+def _lookup_openphish(ioc_type: str, value: str):
+    if ioc_type not in ("URL", "Domain"):
+        return None, None
+    feed = _get_openphish_feed()
+    if ioc_type == "URL":
+        listed = value in feed
+    else:
+        # Check if any phishing URL in the feed uses this domain
+        needle = value.lower()
+        listed = any(needle in u.lower() for u in feed)
+    if listed:
+        return 85, {"source": "OpenPhish", "listed": True, "category": "phishing"}
+    return 0, {"source": "OpenPhish", "listed": False}
+
+
+# ── Threat profile aggregation ────────────────────────────────────────────────
+
+def _parse_dt(value: str, fmt: str) -> Optional[_dt]:
+    try:
+        return _dt.strptime(value.replace(" UTC", "").strip(), fmt)
+    except Exception:
+        return None
+
+
+def _calculate_threat_profile(feeds_results: list) -> dict:
+    """Aggregate per-feed results into a composite threat score and structured profile."""
+    weighted_sum = 0
+    weight_total = 0
+    malware_family: Optional[str] = None
+    first_seen: Optional[_dt] = None
+    last_seen: Optional[_dt] = None
+    all_tags: list = []
+
+    for feed in feeds_results:
+        if "error" in feed:
+            continue
+        source = feed.get("source", "")
+
+        if source == "VirusTotal":
+            score = feed.get("score_pct", 0) or 0
+            weighted_sum += score * 3
+            weight_total += 3
+            all_tags.extend(feed.get("tags") or [])
+
+        elif source == "AbuseIPDB":
+            score = feed.get("confidence", 0) or 0
+            weighted_sum += score * 2
+            weight_total += 2
+
+        elif source == "AlienVault OTX":
+            pulse_count = feed.get("pulse_count", 0) or 0
+            score = min(pulse_count * 10, 100)
+            weighted_sum += score * 1
+            weight_total += 1
+            families = feed.get("malware_families") or []
+            if families and not malware_family:
+                malware_family = families[0]
+            all_tags.extend(feed.get("tags") or [])
+
+        elif source == "URLHaus":
+            listed = feed.get("listed", False)
+            url_count = feed.get("url_count", 0) or 0
+            score = 80 if (listed or url_count > 0) else 0
+            weighted_sum += score * 1
+            weight_total += 1
+            if feed.get("signature") and not malware_family:
+                malware_family = feed["signature"]
+            if feed.get("first_seen") and not first_seen:
+                first_seen = _parse_dt(feed["first_seen"], "%Y-%m-%d %H:%M:%S")
+            all_tags.extend(feed.get("tags") or [])
+
+        elif source == "MalwareBazaar":
+            found = feed.get("found", False)
+            score = 90 if found else 0
+            weighted_sum += score * 2
+            weight_total += 2
+            if feed.get("signature") and not malware_family:
+                malware_family = feed["signature"]
+            if feed.get("first_seen") and not first_seen:
+                first_seen = _parse_dt(feed["first_seen"], "%Y-%m-%d %H:%M:%S")
+            if feed.get("last_seen") and not last_seen:
+                last_seen = _parse_dt(feed["last_seen"], "%Y-%m-%d %H:%M:%S")
+            all_tags.extend(feed.get("tags") or [])
+
+        elif source == "OpenPhish":
+            score = 85 if feed.get("listed") else 0
+            weighted_sum += score * 1
+            weight_total += 1
+
+    threat_score = round(weighted_sum / weight_total) if weight_total > 0 else 0
+
+    if threat_score >= 70:
+        verdict = "Malicious"
+    elif threat_score >= 30:
+        verdict = "Suspicious"
+    elif weight_total > 0:
+        verdict = "Clean"
+    else:
+        verdict = "Unknown"
+
+    unique_tags = list(dict.fromkeys(all_tags))[:10]
+
+    return {
+        "threat_score":   threat_score,
+        "threat_verdict": verdict,
+        "malware_family": malware_family,
+        "first_seen_date": first_seen,
+        "last_seen_date":  last_seen,
+        "tags":            unique_tags,
     }
 
 
@@ -182,13 +424,51 @@ def lookup_ioc(db: Session, tenant_id: int, ioc_type: str, value: str) -> dict:
             pulse_count, info = _lookup_otx(config.otx_api_key, ioc_type, value)
             if info:
                 feeds_results.append(info)
-                # Use pulse count as a malicious signal if no VT score yet
                 if vt_score is None and pulse_count is not None:
                     vt_score = min(pulse_count * 10, 100)
         except Exception as exc:
             feeds_results.append({"source": "AlienVault OTX", "error": str(exc)})
 
-    return {"vt_score": vt_score, "feeds": feeds_results}
+    # URLHaus — free, no key required
+    _uh_all = _UH_HASH_TYPES | _UH_HOST_TYPES | _UH_URL_TYPES
+    if ioc_type in _uh_all:
+        try:
+            uh_score, uh_info = _lookup_urlhaus(ioc_type, value)
+            if uh_info is not None:
+                feeds_results.append(uh_info)
+        except Exception as exc:
+            feeds_results.append({"source": "URLHaus", "error": str(exc)})
+
+    # MalwareBazaar — free hash lookup, no key required
+    if ioc_type in ("SHA256", "MD5"):
+        try:
+            mb_score, mb_info = _lookup_malwarebazaar(ioc_type, value)
+            if mb_info is not None:
+                feeds_results.append(mb_info)
+        except Exception as exc:
+            feeds_results.append({"source": "MalwareBazaar", "error": str(exc)})
+
+    # OpenPhish — free community feed for URL/Domain checks
+    if ioc_type in ("URL", "Domain"):
+        try:
+            op_score, op_info = _lookup_openphish(ioc_type, value)
+            if op_info is not None:
+                feeds_results.append(op_info)
+        except Exception as exc:
+            feeds_results.append({"source": "OpenPhish", "error": str(exc)})
+
+    profile = _calculate_threat_profile(feeds_results)
+
+    return {
+        "vt_score":       vt_score,
+        "feeds":          feeds_results,
+        "threat_score":   profile["threat_score"],
+        "threat_verdict": profile["threat_verdict"],
+        "malware_family": profile["malware_family"],
+        "first_seen_date": profile["first_seen_date"],
+        "last_seen_date":  profile["last_seen_date"],
+        "tags":            profile["tags"],
+    }
 
 
 # ── Background enrichment ─────────────────────────────────────────────────────
@@ -203,8 +483,13 @@ def _enrich_worker(ioc_id: int, tenant_id: int):
             return
         result = lookup_ioc(db, tenant_id, ioc.type, ioc.value)
         ioc.enrichment_status = "done"
-        ioc.vt_score = result.get("vt_score")
-        ioc.enrichment_data = json.dumps(result.get("feeds", []))
+        ioc.vt_score          = result.get("vt_score")
+        ioc.enrichment_data   = json.dumps(result.get("feeds", []))
+        ioc.threat_score      = result.get("threat_score")
+        ioc.threat_verdict    = result.get("threat_verdict")
+        ioc.malware_family    = result.get("malware_family")
+        ioc.first_seen_date   = result.get("first_seen_date")
+        ioc.last_seen_date    = result.get("last_seen_date")
         db.commit()
     except Exception as exc:
         try:

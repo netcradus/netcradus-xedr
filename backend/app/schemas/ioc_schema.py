@@ -217,6 +217,16 @@ class IOCResponse(BaseModel):
 
     vt_score: Optional[int] = None
 
+    threat_score: Optional[int] = None
+
+    threat_verdict: Optional[str] = None
+
+    malware_family: Optional[str] = None
+
+    first_seen_date: Optional[datetime] = None
+
+    last_seen_date: Optional[datetime] = None
+
     model_config = {
         "from_attributes": True
     }

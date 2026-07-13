@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -158,6 +160,63 @@ def update_ioc_endpoint(
         )
 
     return ioc
+
+
+@router.get("/{ioc_id}/enrichment")
+def get_ioc_enrichment(
+        ioc_id: int,
+        current_user: User = Depends(analyst_required),
+        db: Session = Depends(get_db)):
+    """
+    Return the full threat intelligence profile for an IOC.
+
+    Combines data from all enrichment feeds (VirusTotal, AbuseIPDB, AlienVault OTX,
+    URLHaus, MalwareBazaar, OpenPhish) into a structured threat profile with a
+    composite threat score (0-100) and a human-readable verdict.
+    """
+    ioc = get_ioc(db, ioc_id, current_user.tenant_id)
+    if not ioc:
+        raise HTTPException(status_code=404, detail="IOC not found")
+
+    feeds = []
+    if ioc.enrichment_data:
+        try:
+            feeds = json.loads(ioc.enrichment_data)
+        except Exception:
+            feeds = []
+
+    return {
+        "ioc_id":           ioc.id,
+        "type":             ioc.type,
+        "value":            ioc.value,
+        "enrichment_status": ioc.enrichment_status,
+        "threat_score":     ioc.threat_score,
+        "threat_verdict":   ioc.threat_verdict,
+        "malware_family":   ioc.malware_family,
+        "first_seen_date":  ioc.first_seen_date.isoformat() if ioc.first_seen_date else None,
+        "last_seen_date":   ioc.last_seen_date.isoformat() if ioc.last_seen_date else None,
+        "vt_score":         ioc.vt_score,
+        "feeds":            feeds,
+    }
+
+
+@router.post("/{ioc_id}/re-enrich", status_code=202)
+def re_enrich_ioc(
+        ioc_id: int,
+        current_user: User = Depends(analyst_required),
+        db: Session = Depends(get_db)):
+    """Force re-enrichment of a single IOC against all configured threat feeds."""
+    from app.models.ioc import IOC as IOCModel
+    ioc = db.query(IOCModel).filter(
+        IOCModel.id == ioc_id,
+        IOCModel.tenant_id == current_user.tenant_id,
+    ).first()
+    if not ioc:
+        raise HTTPException(status_code=404, detail="IOC not found")
+    ioc.enrichment_status = "pending"
+    db.commit()
+    enrich_ioc_background(ioc.id, current_user.tenant_id)
+    return {"status": "accepted", "ioc_id": ioc_id}
 
 
 @router.post("/sync", status_code=202)

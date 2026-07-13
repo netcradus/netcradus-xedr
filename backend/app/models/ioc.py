@@ -63,3 +63,13 @@ class IOC(Base):
     vt_score = Column(Integer, nullable=True)
 
     enrichment_data = Column(Text, nullable=True)
+
+    threat_score = Column(Integer, nullable=True, index=True)
+
+    threat_verdict = Column(String(20), nullable=True)
+
+    malware_family = Column(String(100), nullable=True)
+
+    first_seen_date = Column(DateTime, nullable=True)
+
+    last_seen_date = Column(DateTime, nullable=True)
