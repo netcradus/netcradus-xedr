@@ -146,6 +146,7 @@ def client(db):
         patch("main.create_default_tenant"),
         patch("main.seed_platform_admin"),
         patch("main.seed_detection_rules"),
+        patch("main.seed_playbooks"),
     ):
         with TestClient(app, raise_server_exceptions=True) as c:
             yield c

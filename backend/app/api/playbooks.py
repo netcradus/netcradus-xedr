@@ -29,8 +29,10 @@ from app.services.audit_service import log_event
 router = APIRouter(prefix="/playbooks", tags=["SOAR Playbooks"])
 
 VALID_ACTION_TYPES = {
-    "close_alert", "escalate_incident", "isolate_agent",
-    "add_ioc", "send_notification", "enrich_ioc",
+    "close_alert", "escalate_incident",
+    "isolate_agent", "kill_process", "block_ip",
+    "add_ioc", "notify_slack", "send_notification",
+    "create_incident", "enrich_ioc",
 }
 
 
