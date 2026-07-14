@@ -23,6 +23,10 @@ class User(Base):
     email_verified = Column(Boolean, default=False)
     email_verification_token = Column(String, unique=True, nullable=True)
 
+    # Tracks the last time the password was set; access tokens carry this as
+    # pwd_iat so tokens issued before a password change are automatically rejected.
+    password_changed_at = Column(DateTime, nullable=True)
+
     # Password reset
     password_reset_token = Column(String, unique=True, nullable=True)
     password_reset_expires = Column(DateTime, nullable=True)

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -279,5 +281,6 @@ def change_password(
         raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
 
     current_user.password = hash_password(payload.new_password)
+    current_user.password_changed_at = datetime.now(timezone.utc)
     db.commit()
     return {"message": "Password updated successfully"}

@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.limiter import limiter
@@ -101,9 +102,19 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 # ── Middleware stack (last added = outermost = runs first on request) ─────────
-# Execution order:  SecurityHeaders → CorrelationId → Latency → CORS → handler
+# Execution order:
+#   SecurityHeaders → CorrelationId → Latency → CORS → SlowAPI(rate-limit) → handler
+#
+# SlowAPIMiddleware is innermost so that:
+#   • CORS headers are included on 429 responses (CORS wraps SlowAPI)
+#   • default_limits (300/min per IP) apply to EVERY route without requiring
+#     `request: Request` on each handler — this closes the rate-limiting gap
+#     identified in the VAPT audit.
 
-# CORS (innermost — must run before any auth logic)
+# Rate limiter — innermost so CORS headers are present on 429 responses
+app.add_middleware(SlowAPIMiddleware)
+
+# CORS wraps the rate limiter
 _allowed_origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,

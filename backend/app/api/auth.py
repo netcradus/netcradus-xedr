@@ -30,6 +30,21 @@ _REFRESH_COOKIE = "refresh_token"
 _MFA_SESSION_MINUTES = 5
 
 
+def _access_token_for(user: User) -> str:
+    """Build an access token that embeds the user's password_changed_at timestamp.
+
+    The ``pwd_iat`` claim lets get_current_user invalidate tokens that were
+    issued before the most recent password change (LOW-12 VAPT fix).
+    """
+    data: dict = {"sub": user.email}
+    if user.password_changed_at is not None:
+        ts = user.password_changed_at
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        data["pwd_iat"] = int(ts.timestamp())
+    return create_access_token(data)
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
@@ -166,7 +181,7 @@ def register(
     except Exception:
         pass
 
-    token = create_access_token({"sub": user.email})
+    token = _access_token_for(user)
     _set_refresh_cookie(user, db, response)
     return {
         "access_token": token,
@@ -215,7 +230,7 @@ def login(
     except Exception:
         pass
 
-    token = create_access_token({"sub": db_user.email})
+    token = _access_token_for(db_user)
     _set_refresh_cookie(db_user, db, response)
     return {"access_token": token, "token_type": "bearer"}
 
@@ -245,7 +260,7 @@ def refresh_token(
             _clear_refresh_cookie(response)
             raise HTTPException(status_code=401, detail="Refresh token expired")
 
-    new_access = create_access_token({"sub": user.email})
+    new_access = _access_token_for(user)
     _set_refresh_cookie(user, db, response)   # rotate refresh token
     return {"access_token": new_access, "token_type": "bearer"}
 
@@ -321,6 +336,9 @@ def reset_password(
     user.password = hash_password(body.new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
+    # Stamp the change time so any outstanding access tokens are rejected
+    # by the pwd_iat check in get_current_user (LOW-12 VAPT fix).
+    user.password_changed_at = datetime.now(timezone.utc)
     # Invalidate all active sessions — anyone holding an old refresh token is kicked out
     user.refresh_token = None
     user.refresh_token_expires = None
@@ -450,6 +468,6 @@ def mfa_verify(
     except Exception:
         pass
 
-    token = create_access_token({"sub": user.email})
+    token = _access_token_for(user)
     _set_refresh_cookie(user, db, response)
     return {"access_token": token, "token_type": "bearer"}
