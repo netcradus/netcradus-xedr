@@ -17,6 +17,7 @@ from windows_event_log_monitor import collect_windows_events
 from web_log_monitor import collect_web_logs
 from app_log_monitor import collect_app_logs
 from update_manager import check_and_apply
+from vuln_scanner import run_all_checks
 
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -41,6 +42,9 @@ POLL_INTERVAL = config.get("poll_interval", 10)
 
 # Update check runs every N poll cycles (default 6 × 10 s = every 60 s)
 UPDATE_CHECK_INTERVAL = config.get("update_check_interval", 6)
+
+# Vulnerability scan runs every N cycles (default 360 × 10 s = every 60 min)
+VULN_SCAN_INTERVAL = config.get("vuln_scan_interval", 360)
 
 _LOG_CFG = config.get("log_sources", {})
 
@@ -121,6 +125,24 @@ def main():
 
             # Command polling
             execute_command(SERVER_URL, AGENT_TOKEN)
+
+            # Vulnerability scan (every VULN_SCAN_INTERVAL cycles)
+            if cycle % VULN_SCAN_INTERVAL == 0:
+                try:
+                    print("[vuln] Running vulnerability scan...")
+                    findings = run_all_checks()
+                    if findings:
+                        import requests as _req
+                        _req.post(
+                            f"{SERVER_URL}/vulnerability/scans",
+                            json={"agent_token": AGENT_TOKEN, "findings": findings},
+                            timeout=30,
+                        )
+                        print(f"[vuln] Submitted {len(findings)} finding(s)")
+                    else:
+                        print("[vuln] No findings")
+                except Exception as e:
+                    print(f"[vuln] Scan error: {e}")
 
             # Update check (every UPDATE_CHECK_INTERVAL cycles)
             cycle += 1

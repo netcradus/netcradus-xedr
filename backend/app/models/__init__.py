@@ -23,6 +23,8 @@ from app.models.compliance_framework import ComplianceFramework
 from app.models.compliance_control import ComplianceControl
 from app.models.compliance_assessment import ComplianceAssessment
 from app.models.compliance_evidence import ComplianceEvidence
+from app.models.vuln_scan import VulnScan
+from app.models.vuln_finding import VulnFinding
 
 __all__ = [
     "Agent",
@@ -50,4 +52,6 @@ __all__ = [
     "ComplianceControl",
     "ComplianceAssessment",
     "ComplianceEvidence",
+    "VulnScan",
+    "VulnFinding",
 ]

@@ -36,9 +36,12 @@ def _xdr_state(db: Session, tenant_id: int) -> dict[str, bool]:
         YaraRule.enabled.is_(True),
     ).scalar() or 0
 
-    open_alerts = db.query(func.count(Alert.id)).filter(
-        Alert.tenant_id == tenant_id,
-    ).scalar() or 0
+    open_alerts = (
+        db.query(func.count(Alert.id))
+        .join(Agent, Alert.agent_id == Agent.id)
+        .filter(Agent.tenant_id == tenant_id)
+        .scalar() or 0
+    )
 
     mfa_users = db.query(func.count(User.id)).filter(
         User.tenant_id == tenant_id,
