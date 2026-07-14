@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
@@ -231,8 +232,13 @@ async def upload_evidence_file(
 
     from app.core.storage import get_storage
     file_bytes = await file.read()
-    ts  = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    key = f"evidence/{incident_id}/{ts}_{file.filename}"
+    _MAX_EVIDENCE_BYTES = 100 * 1024 * 1024  # 100 MB
+    if len(file_bytes) > _MAX_EVIDENCE_BYTES:
+        raise HTTPException(status_code=413, detail="File exceeds the 100 MB evidence size limit")
+    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    # Strip any directory components from the filename to prevent path traversal
+    safe_name = PurePosixPath(file.filename or "upload").name or "upload"
+    key = f"evidence/{incident_id}/{ts}_{safe_name}"
     get_storage().put(key, file_bytes, file.content_type or "application/octet-stream")
 
     return incident_service.add_evidence(

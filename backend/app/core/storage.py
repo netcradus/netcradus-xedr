@@ -56,7 +56,11 @@ class StorageClient:
                 ContentType=content_type,
             )
         else:
-            dest = self._local_dir / key
+            dest = (self._local_dir / key).resolve()
+            # Guard against path traversal: the resolved destination must stay
+            # inside the configured storage root.
+            if not str(dest).startswith(str(self._local_dir)):
+                raise ValueError(f"Storage key escapes storage root: {key!r}")
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(data)
         return key

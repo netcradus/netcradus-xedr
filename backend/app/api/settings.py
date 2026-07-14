@@ -13,6 +13,10 @@ from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
+# Roles a tenant Admin is permitted to assign — SuperAdmin and PlatformAdmin
+# are platform-level roles that must never be granted by a tenant-scoped action.
+_TENANT_ASSIGNABLE_ROLES = {"Admin", "Analyst", "Viewer"}
+
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -123,9 +127,11 @@ def invite_member(
     current_user: User = Depends(admin_required),
     db: Session = Depends(get_db),
 ):
-    # Block elevating to SuperAdmin
-    if payload.role == "SuperAdmin":
-        raise HTTPException(status_code=403, detail="Cannot assign SuperAdmin role")
+    if payload.role not in _TENANT_ASSIGNABLE_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot assign role '{payload.role}'. Allowed roles: {sorted(_TENANT_ASSIGNABLE_ROLES)}",
+        )
 
     # Resolve role
     role = db.query(Role).filter(Role.name == payload.role).first()
@@ -167,8 +173,11 @@ def change_role(
     current_user: User = Depends(admin_required),
     db: Session = Depends(get_db),
 ):
-    if payload.role == "SuperAdmin":
-        raise HTTPException(status_code=403, detail="Cannot assign SuperAdmin role")
+    if payload.role not in _TENANT_ASSIGNABLE_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot assign role '{payload.role}'. Allowed roles: {sorted(_TENANT_ASSIGNABLE_ROLES)}",
+        )
 
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot change your own role")

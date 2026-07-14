@@ -336,9 +336,14 @@ def backfill_incidents(db: Session, tenant_id: int) -> int:
     """
     from app.models.agent import Agent as AgentModel
 
-    # Only backfill alerts not yet linked to any incident
+    # Only backfill alerts not yet linked to an incident belonging to this tenant.
+    # Scoped to tenant_id to avoid loading cross-tenant IncidentAlert rows into memory.
     linked_alert_ids = {
-        r[0] for r in db.query(IncidentAlert.alert_id).all()
+        r[0]
+        for r in db.query(IncidentAlert.alert_id)
+        .join(Incident, IncidentAlert.incident_id == Incident.id)
+        .filter(Incident.tenant_id == tenant_id)
+        .all()
     }
 
     unlinked_alerts = (

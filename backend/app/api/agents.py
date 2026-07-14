@@ -64,7 +64,9 @@ def heartbeat(request: HeartbeatRequest, db: Session = Depends(get_db)):
 def get_agent_commands(agent_token: str, db: Session = Depends(get_db)):
     agent = db.query(Agent).filter(Agent.agent_token == agent_token).first()
     if not agent:
-        return []
+        # Return 401 rather than an empty list so callers cannot distinguish
+        # "invalid token" from "no pending commands" by probing responses.
+        raise HTTPException(status_code=401, detail="Invalid agent token")
     return db.query(Command).filter(
         Command.agent_id == agent.id,
         Command.status == "Pending"

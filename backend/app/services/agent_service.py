@@ -14,14 +14,26 @@ def register_agent(
         db: Session,
         agent: AgentRegister):
 
-    if (
-        settings.agent_registration_token
-        and agent.registration_token != settings.agent_registration_token
-    ):
-
+    # Require a non-empty registration token; in dev (debug=True) an unset token
+    # emits a warning but still allows registration. In production it is rejected.
+    configured_token = settings.agent_registration_token
+    if not configured_token:
+        if not settings.debug:
+            raise HTTPException(
+                status_code=503,
+                detail="Agent registration is disabled: AGENT_REGISTRATION_TOKEN is not configured",
+            )
+        # dev-only: log the warning but proceed
+        import sys
+        print(
+            "WARNING: AGENT_REGISTRATION_TOKEN is not set. "
+            "All agent registrations are accepted — do NOT run this in production.",
+            file=sys.stderr,
+        )
+    elif agent.registration_token != configured_token:
         raise HTTPException(
             status_code=401,
-            detail="Invalid agent registration token"
+            detail="Invalid agent registration token",
         )
 
     # Resolve tenant: prefer tenant_api_key, fall back to "Default"

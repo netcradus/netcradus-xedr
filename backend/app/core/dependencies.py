@@ -44,6 +44,13 @@ def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="EMAIL_NOT_VERIFIED",
+            headers={"X-Email-Verification-Required": "true"},
+        )
+
     # Enforce tenant-level MFA policy.  SuperAdmin / PlatformAdmin are cross-tenant
     # service roles that are exempt — they can still enroll MFA voluntarily.
     if (

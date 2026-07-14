@@ -1,4 +1,12 @@
 ﻿import os
+import sys
+
+# Placeholder values that must never reach production
+_INSECURE_SECRET_DEFAULTS = {
+    "",
+    "change-this-secret-key",
+    "change-this-to-a-random-64-char-string",
+}
 
 
 class Settings:
@@ -29,6 +37,19 @@ class Settings:
     )
 
     agent_registration_token = os.getenv("AGENT_REGISTRATION_TOKEN", "")
+
+    # Set DEBUG=true in dev; controls whether refresh cookies are Secure-only
+    debug = os.getenv("DEBUG", "false").lower() == "true"
+
+    def __init__(self) -> None:
+        # Refuse to start with an insecure JWT secret in production
+        if self.secret_key in _INSECURE_SECRET_DEFAULTS and not self.debug:
+            print(
+                "FATAL: SECRET_KEY is not set or is still the default placeholder. "
+                "Generate a strong random key and set it in .env before running in production.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     # SMTP for platform system emails (verification, password reset)
     # This is Netcradus's own email — NOT per-customer
@@ -62,9 +83,5 @@ class Settings:
 
     # Redis / Celery broker
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-
-    # Set DEBUG=true in dev; controls whether refresh cookies are Secure-only
-    debug = os.getenv("DEBUG", "false").lower() == "true"
-
 
 settings = Settings()

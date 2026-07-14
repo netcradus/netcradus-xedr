@@ -8,3 +8,6 @@ __pycache__/
 *.db
 instance/
 .webassets-cache/
+.env
+*.env
+local_storage/
