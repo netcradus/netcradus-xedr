@@ -15,6 +15,7 @@ import ThreatIntelligence from '@/pages/ThreatIntelligence/ThreatIntelligence'
 import Playbooks from '@/pages/Playbooks/Playbooks'
 import AttackGraph from '@/pages/AttackGraph/AttackGraph'
 import ThreatHunting from '@/pages/ThreatHunting/ThreatHunting'
+import SigmaRules from '@/pages/SigmaRules/SigmaRules'
 import Reports from '@/pages/Reports/Reports'
 import Integrations from '@/pages/Integrations/Integrations'
 import Settings from '@/pages/Settings/Settings'
@@ -72,6 +73,7 @@ export default function AppRoutes() {
                 <Route path="/playbooks" element={<Playbooks />} />
                 <Route path="/attack-graph" element={<AttackGraph />} />
                 <Route path="/threat-hunting" element={<ThreatHunting />} />
+                <Route path="/sigma-rules" element={<SigmaRules />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/integrations" element={<Integrations />} />
                 <Route path="/settings" element={<Settings />} />
