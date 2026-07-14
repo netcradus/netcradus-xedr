@@ -314,6 +314,180 @@ const DEMO_REPORT_HISTORY = {
   ],
 }
 
+// ── Compliance mock data ──────────────────────────────────────────────────────
+
+const _ctrl = (
+  id: number, ref: string, title: string, cat: string,
+  pri: string, auto: boolean, status: string, ev: number,
+) => ({ id, control_ref: ref, title, category: cat, priority: pri, xdr_auto: auto, status, evidence: ev })
+
+const DEMO_COMPLIANCE_DASHBOARD = {
+  overall_score:    82.0,
+  total_controls:   80,
+  missing_controls: 18,
+  evidence_ready:   62,
+  frameworks: [
+    {
+      id: 1, name: 'ISO 27001', version: '2022',
+      description: 'Information security management systems', category: 'Security', color: '#3B82F6',
+      score: 87.5, compliant: 12, missing: 2, total: 14,
+      controls: [
+        _ctrl(1,  'A.5.1',  'Information Security Policies',          'Governance',       'Critical', false, 'compliant',     3),
+        _ctrl(2,  'A.6.1',  'Internal Organisation',                  'Governance',       'High',     false, 'compliant',     1),
+        _ctrl(3,  'A.7.2',  'Information Security Awareness Training','People',           'High',     false, 'partial',       1),
+        _ctrl(4,  'A.8.1',  'Asset Inventory & Classification',       'Asset Management', 'High',     true,  'compliant',     2),
+        _ctrl(5,  'A.9.1',  'Access Control Policy',                  'Access Control',   'Critical', false, 'compliant',     2),
+        _ctrl(6,  'A.9.4',  'System & Application Access Control',   'Access Control',   'High',     true,  'compliant',     2),
+        _ctrl(7,  'A.10.1', 'Cryptographic Controls',                 'Cryptography',     'High',     false, 'non_compliant', 0),
+        _ctrl(8,  'A.12.1', 'Operational Security Procedures',        'Operations',       'High',     true,  'compliant',     2),
+        _ctrl(9,  'A.12.4', 'Logging and Monitoring',                 'Operations',       'Critical', true,  'compliant',     3),
+        _ctrl(10, 'A.12.6', 'Technical Vulnerability Management',     'Operations',       'High',     true,  'compliant',     2),
+        _ctrl(11, 'A.13.1', 'Network Security Management',            'Communications',   'High',     true,  'compliant',     1),
+        _ctrl(12, 'A.16.1', 'Incident Response Procedures',           'Incident Mgmt',    'Critical', true,  'compliant',     3),
+        _ctrl(13, 'A.18.1', 'Compliance with Legal Requirements',     'Compliance',       'High',     false, 'non_compliant', 0),
+        _ctrl(14, 'A.5.23', 'Information Security for Cloud Services','Cloud',            'High',     false, 'compliant',     1),
+      ],
+    },
+    {
+      id: 2, name: 'SOC 2', version: 'Type II',
+      description: 'Service organization control criteria', category: 'Audit', color: '#8B5CF6',
+      score: 84.6, compliant: 11, missing: 2, total: 13,
+      controls: [
+        _ctrl(15, 'CC1.1', 'Control Environment — Governance',         'Control Environment', 'Critical', false, 'compliant',     2),
+        _ctrl(16, 'CC2.1', 'Communication of Information',             'Communication',       'High',     false, 'compliant',     1),
+        _ctrl(17, 'CC3.1', 'Risk Assessment',                          'Risk Assessment',     'Critical', false, 'partial',       1),
+        _ctrl(18, 'CC5.1', 'Control Activities — Policies',            'Control Activities',  'High',     false, 'compliant',     2),
+        _ctrl(19, 'CC6.1', 'Logical & Physical Access Controls',       'Access Control',      'Critical', true,  'compliant',     3),
+        _ctrl(20, 'CC6.6', 'Transmission Security',                    'Access Control',      'High',     true,  'compliant',     2),
+        _ctrl(21, 'CC7.1', 'System Monitoring',                        'Monitoring',          'High',     true,  'compliant',     2),
+        _ctrl(22, 'CC7.2', 'Threat & Vulnerability Management',        'Monitoring',          'Critical', true,  'compliant',     3),
+        _ctrl(23, 'CC8.1', 'Change Management',                        'Change Mgmt',         'High',     false, 'non_compliant', 0),
+        _ctrl(24, 'CC9.1', 'Risk Mitigation',                          'Risk Mgmt',           'High',     false, 'compliant',     1),
+        _ctrl(25, 'A1.1',  'Availability — Capacity Planning',         'Availability',        'Medium',   false, 'compliant',     1),
+        _ctrl(26, 'PI1.1', 'Processing Integrity',                     'Integrity',           'High',     false, 'non_compliant', 0),
+        _ctrl(27, 'C1.1',  'Confidentiality of Information',           'Confidentiality',     'Critical', false, 'compliant',     2),
+      ],
+    },
+    {
+      id: 3, name: 'PCI DSS', version: 'v4.0',
+      description: 'Payment card industry data security standard', category: 'Finance', color: '#F59E0B',
+      score: 76.9, compliant: 10, missing: 4, total: 14,
+      controls: [
+        _ctrl(28, 'Req 1',  'Install & Maintain Firewalls',            'Network Security',    'Critical', true,  'compliant',     2),
+        _ctrl(29, 'Req 2',  'No Default Passwords or Security Params', 'Configuration',       'Critical', true,  'compliant',     2),
+        _ctrl(30, 'Req 3',  'Protect Stored Cardholder Data',          'Data Protection',     'Critical', false, 'non_compliant', 0),
+        _ctrl(31, 'Req 4',  'Encrypt Transmission of Cardholder Data', 'Encryption',          'Critical', false, 'non_compliant', 0),
+        _ctrl(32, 'Req 5',  'Anti-Malware Software',                   'Anti-Malware',        'High',     true,  'compliant',     2),
+        _ctrl(33, 'Req 6',  'Secure Systems and Software',             'Patch Management',    'High',     true,  'compliant',     2),
+        _ctrl(34, 'Req 7',  'Restrict Access by Business Need',        'Access Control',      'High',     false, 'compliant',     1),
+        _ctrl(35, 'Req 8',  'Identify & Authenticate Users',           'Authentication',      'Critical', false, 'compliant',     2),
+        _ctrl(36, 'Req 9',  'Restrict Physical Access',                'Physical Security',   'Medium',   false, 'non_compliant', 0),
+        _ctrl(37, 'Req 10', 'Log & Monitor All Access',                'Logging',             'High',     true,  'compliant',     3),
+        _ctrl(38, 'Req 11', 'Test Security Systems Regularly',         'Testing',             'High',     true,  'compliant',     2),
+        _ctrl(39, 'Req 12', 'Maintain Information Security Policy',    'Policy',              'High',     false, 'compliant',     1),
+        _ctrl(40, '11.3.1', 'External Penetration Testing',            'Testing',             'High',     false, 'non_compliant', 0),
+        _ctrl(41, '12.10', 'Incident Response Plan',                   'Incident Response',   'Critical', true,  'compliant',     2),
+      ],
+    },
+    {
+      id: 4, name: 'GDPR', version: '2018',
+      description: 'General Data Protection Regulation', category: 'Privacy', color: '#10B981',
+      score: 83.3, compliant: 10, missing: 2, total: 12,
+      controls: [
+        _ctrl(42, 'Art.5',   'Principles of Processing',               'Data Principles',     'Critical', false, 'compliant',     2),
+        _ctrl(43, 'Art.6',   'Lawfulness of Processing',               'Legal Basis',         'Critical', false, 'compliant',     1),
+        _ctrl(44, 'Art.12',  'Transparent Communication',              'Transparency',        'High',     false, 'compliant',     1),
+        _ctrl(45, 'Art.17',  'Right to Erasure',                       'Data Subject Rights', 'High',     false, 'partial',       1),
+        _ctrl(46, 'Art.25',  'Privacy by Design',                      'Privacy',             'High',     false, 'compliant',     1),
+        _ctrl(47, 'Art.28',  'Processor Contracts (DPA)',              'Contracts',           'High',     false, 'compliant',     2),
+        _ctrl(48, 'Art.30',  'Records of Processing Activities (ROPA)','Documentation',      'High',     false, 'non_compliant', 0),
+        _ctrl(49, 'Art.32',  'Security of Processing',                 'Technical Controls',  'Critical', true,  'compliant',     3),
+        _ctrl(50, 'Art.33',  'Breach Notification to Authority',       'Incident Response',   'Critical', false, 'non_compliant', 0),
+        _ctrl(51, 'Art.35',  'Data Protection Impact Assessment',      'Risk',                'High',     false, 'compliant',     1),
+        _ctrl(52, 'Art.37',  'Data Protection Officer',                'Governance',          'Medium',   false, 'compliant',     1),
+        _ctrl(53, 'Art.44',  'International Data Transfers',           'Data Transfers',      'High',     false, 'compliant',     1),
+      ],
+    },
+    {
+      id: 5, name: "DPDP Act", version: '2023',
+      description: "India's Digital Personal Data Protection Act", category: 'Privacy', color: '#F97316',
+      score: 76.9, compliant: 10, missing: 3, total: 13,
+      controls: [
+        _ctrl(54, 'S.4',   'Grounds for Processing',                  'Legal Basis',         'Critical', false, 'compliant',     1),
+        _ctrl(55, 'S.6',   'Consent Management',                      'Consent',             'Critical', false, 'compliant',     2),
+        _ctrl(56, 'S.8',   'Obligations of Data Fiduciary',           'Obligations',         'Critical', false, 'compliant',     1),
+        _ctrl(57, 'S.9',   'Processing of Data of Children',          'Children Data',       'Critical', false, 'non_compliant', 0),
+        _ctrl(58, 'S.10',  'Significant Data Fiduciary Obligations',  'Compliance',          'High',     false, 'non_compliant', 0),
+        _ctrl(59, 'S.11',  'Rights of Data Principal',                'Data Rights',         'High',     false, 'compliant',     1),
+        _ctrl(60, 'S.12',  'Right to Correction and Erasure',        'Data Rights',         'High',     false, 'compliant',     1),
+        _ctrl(61, 'S.13',  'Right to Grievance Redressal',           'Grievance',           'Medium',   false, 'compliant',     1),
+        _ctrl(62, 'S.17',  'Exemptions',                              'Legal',               'Medium',   false, 'compliant',     1),
+        _ctrl(63, 'S.20',  'Data Localisation Requirements',          'Data Residency',      'High',     false, 'non_compliant', 0),
+        _ctrl(64, 'S.22',  'Security Safeguards',                    'Technical Controls',  'Critical', true,  'compliant',     3),
+        _ctrl(65, 'S.24',  'Breach Reporting to DPB',                'Incident Response',   'Critical', false, 'compliant',     2),
+        _ctrl(66, 'S.27',  'Data Protection Board Compliance',       'Regulatory',          'High',     false, 'compliant',     1),
+      ],
+    },
+    {
+      id: 6, name: 'HIPAA', version: '2024',
+      description: 'Health Insurance Portability and Accountability Act', category: 'Healthcare', color: '#06B6D4',
+      score: 83.3, compliant: 10, missing: 2, total: 12,
+      controls: [
+        _ctrl(67, '§164.308(a)(1)', 'Risk Analysis & Management',      'Administrative',     'Critical', true,  'compliant',     2),
+        _ctrl(68, '§164.308(a)(3)', 'Workforce Security',              'Administrative',     'High',     false, 'compliant',     1),
+        _ctrl(69, '§164.308(a)(5)', 'Security Awareness Training',     'Administrative',     'High',     false, 'partial',       1),
+        _ctrl(70, '§164.308(a)(6)', 'Security Incident Procedures',    'Administrative',     'Critical', true,  'compliant',     3),
+        _ctrl(71, '§164.310(a)(1)', 'Facility Access Controls',        'Physical',           'High',     false, 'compliant',     1),
+        _ctrl(72, '§164.312(a)(1)', 'Access Control — Unique IDs',    'Technical',          'Critical', true,  'compliant',     2),
+        _ctrl(73, '§164.312(a)(2)', 'Emergency Access Procedures',     'Technical',          'High',     false, 'compliant',     1),
+        _ctrl(74, '§164.312(b)',    'Audit Controls',                  'Technical',          'High',     true,  'compliant',     3),
+        _ctrl(75, '§164.312(c)(1)', 'Integrity Controls',             'Technical',          'High',     true,  'compliant',     2),
+        _ctrl(76, '§164.312(e)(1)', 'Transmission Security',           'Technical',          'Critical', false, 'non_compliant', 0),
+        _ctrl(77, '§164.314(a)(1)', 'Business Associate Contracts',    'Contracts',          'High',     false, 'non_compliant', 0),
+        _ctrl(78, '§164.316(b)',    'Documentation Requirements',      'Documentation',      'Medium',   false, 'compliant',     1),
+      ],
+    },
+  ],
+}
+
+// ── Vulnerability mock data ───────────────────────────────────────────────────
+
+const DEMO_VULN_DASHBOARD = {
+  total_open:    47,
+  critical:       5,
+  high:          12,
+  medium:        18,
+  low:            9,
+  info:           3,
+  by_check_type: { cve: 15, port: 8, patch: 4, rdp: 3, smb: 2, password: 5, software: 7, other: 3 },
+  asset_summary: [
+    { agent_id: 1, hostname: 'WIN-DC-01',     ip_address: '10.0.0.1',       Critical: 3, High: 5, Medium: 4, Low: 2, Info: 1, risk_score: 85 },
+    { agent_id: 2, hostname: 'WIN-WORKST-01', ip_address: '192.168.1.101',  Critical: 1, High: 4, Medium: 6, Low: 3, Info: 2, risk_score: 60 },
+    { agent_id: 3, hostname: 'LINUX-WEB-01',  ip_address: '192.168.1.50',   Critical: 1, High: 3, Medium: 5, Low: 2, Info: 0, risk_score: 51 },
+    { agent_id: 5, hostname: 'WIN-SERVER-02', ip_address: '10.0.0.5',       Critical: 0, High: 0, Medium: 3, Low: 2, Info: 0, risk_score: 8  },
+  ],
+  recent_scans: [
+    { id: 3, agent_id: 1, hostname: 'WIN-DC-01',     critical_count: 3, high_count: 5, medium_count: 4, low_count: 2, total_findings: 15, started_at: hAgo(2), completed_at: hAgo(1.98) },
+    { id: 2, agent_id: 2, hostname: 'WIN-WORKST-01', critical_count: 1, high_count: 4, medium_count: 6, low_count: 3, total_findings: 16, started_at: hAgo(4), completed_at: hAgo(3.97) },
+    { id: 1, agent_id: 3, hostname: 'LINUX-WEB-01',  critical_count: 1, high_count: 3, medium_count: 5, low_count: 2, total_findings: 11, started_at: dAgo(1), completed_at: dAgo(0.999) },
+  ],
+}
+
+const DEMO_VULN_FINDINGS = [
+  { id: 1,  agent_id: 1, hostname: 'WIN-DC-01',     check_type: 'cve',      severity: 'Critical', title: 'CVE-2021-44228: Log4Shell in log4j 2.14.1',                   description: 'JNDI remote code execution via Log4j logger.',                          remediation: 'Upgrade Log4j to 2.17.1+',                                      cve_id: 'CVE-2021-44228', cvss_score: 10.0, affected_component: 'log4j 2.14.1',     package_name: 'log4j',  installed_version: '2.14.1', fixed_version: '2.17.1', status: 'open',          first_seen: hAgo(2),  last_seen: hAgo(2) },
+  { id: 2,  agent_id: 1, hostname: 'WIN-DC-01',     check_type: 'cve',      severity: 'Critical', title: 'CVE-2022-3786: OpenSSL 3.0.5 buffer overflow',                  description: 'X.509 email address variable length buffer overflow.',               remediation: 'Upgrade OpenSSL to 3.0.7+',                                     cve_id: 'CVE-2022-3786', cvss_score: 9.8,  affected_component: 'openssl 3.0.5',    package_name: 'openssl',installed_version: '3.0.5',  fixed_version: '3.0.7',  status: 'open',          first_seen: hAgo(2),  last_seen: hAgo(2) },
+  { id: 3,  agent_id: 1, hostname: 'WIN-DC-01',     check_type: 'smb',      severity: 'Critical', title: 'SMBv1 Protocol Enabled',                                        description: 'SMBv1 is exploitable via EternalBlue (CVE-2017-0144), used in WannaCry.', remediation: 'Set-SmbServerConfiguration -EnableSMB1Protocol $false', cve_id: 'CVE-2017-0144', cvss_score: 9.8,  affected_component: 'SMBv1',           package_name: null,    installed_version: null,     fixed_version: null,     status: 'open',          first_seen: hAgo(2),  last_seen: hAgo(2) },
+  { id: 4,  agent_id: 1, hostname: 'WIN-DC-01',     check_type: 'patch',    severity: 'Critical', title: 'Windows Not Patched for 210 Days',                              description: 'Last Windows update was applied 210 days ago. Unpatched systems are vulnerable.', remediation: 'Run Windows Update immediately and enable automatic updates.', cve_id: null, cvss_score: null, affected_component: 'Windows Update', package_name: null, installed_version: null, fixed_version: null, status: 'open',          first_seen: hAgo(2),  last_seen: hAgo(2) },
+  { id: 5,  agent_id: 1, hostname: 'WIN-DC-01',     check_type: 'rdp',      severity: 'High',     title: 'RDP Enabled Without Network Level Authentication',              description: 'RDP is reachable but NLA is not enforced, increasing brute-force risk.',         remediation: 'Enable NLA in System Properties → Remote settings.',            cve_id: null, cvss_score: null, affected_component: 'RDP (Port 3389)', package_name: null, installed_version: null, fixed_version: null, status: 'open',          first_seen: hAgo(2),  last_seen: hAgo(2) },
+  { id: 6,  agent_id: 1, hostname: 'WIN-DC-01',     check_type: 'port',     severity: 'High',     title: 'Dangerous port open: 23/Telnet',                               description: 'Telnet transmits all data including credentials in plaintext.',                  remediation: 'Disable Telnet; use SSH instead.',                              cve_id: null, cvss_score: null, affected_component: 'Port 23 (Telnet)', package_name: null, installed_version: null, fixed_version: null, status: 'open',          first_seen: hAgo(2),  last_seen: hAgo(2) },
+  { id: 7,  agent_id: 1, hostname: 'WIN-DC-01',     check_type: 'port',     severity: 'Critical', title: 'Dangerous port open: 6379/Redis',                              description: 'Redis exposed — no authentication by default.',                                  remediation: 'Enable Redis AUTH and bind to localhost.',                      cve_id: null, cvss_score: null, affected_component: 'Port 6379 (Redis)', package_name: null, installed_version: null, fixed_version: null, status: 'acknowledged',  first_seen: hAgo(4),  last_seen: hAgo(4) },
+  { id: 8,  agent_id: 2, hostname: 'WIN-WORKST-01', check_type: 'cve',      severity: 'Critical', title: 'CVE-2023-38408: OpenSSH 8.0 Remote Code Execution',            description: 'OpenSSH ssh-agent allows remote code execution via malicious PKCS11 lib.',      remediation: 'Upgrade OpenSSH to 9.1+',                                       cve_id: 'CVE-2023-38408', cvss_score: 9.8, affected_component: 'openssh 8.0', package_name: 'openssh', installed_version: '8.0', fixed_version: '9.1', status: 'open', first_seen: hAgo(4), last_seen: hAgo(4) },
+  { id: 9,  agent_id: 2, hostname: 'WIN-WORKST-01', check_type: 'password', severity: 'High',     title: 'Weak Password Policy: Minimum Length Too Short',               description: 'Minimum password length is set to 6. NIST recommends at least 12 characters.',   remediation: 'Set minimum length to 12+ in Group Policy.',                   cve_id: null, cvss_score: null, affected_component: 'Password Policy', package_name: null, installed_version: null, fixed_version: null, status: 'open',          first_seen: hAgo(4),  last_seen: hAgo(4) },
+  { id: 10, agent_id: 2, hostname: 'WIN-WORKST-01', check_type: 'password', severity: 'High',     title: 'Guest Account Enabled',                                        description: 'The Guest account is active, allowing limited unauthenticated access.',             remediation: 'Run: net user Guest /active:no',                                cve_id: null, cvss_score: null, affected_component: 'Local Users', package_name: null, installed_version: null, fixed_version: null, status: 'resolved',      first_seen: dAgo(3),  last_seen: dAgo(3) },
+  { id: 11, agent_id: 3, hostname: 'LINUX-WEB-01',  check_type: 'patch',    severity: 'High',     title: '7 Security Packages Need Updating',                            description: '7 security-related package updates are available but not installed.',              remediation: 'Run: apt-get update && apt-get upgrade -y',                     cve_id: null, cvss_score: null, affected_component: 'apt packages',   package_name: null, installed_version: null, fixed_version: null, status: 'open',          first_seen: dAgo(1),  last_seen: dAgo(1) },
+  { id: 12, agent_id: 3, hostname: 'LINUX-WEB-01',  check_type: 'cve',      severity: 'High',     title: 'CVE-2023-44487: HTTP/2 Rapid Reset (NGINX 1.22.0)',            description: 'HTTP/2 Rapid Reset attack can cause DoS on NGINX instances.',                    remediation: 'Upgrade NGINX to 1.25.3+',                                      cve_id: 'CVE-2023-44487', cvss_score: 7.5, affected_component: 'nginx 1.22.0', package_name: 'nginx', installed_version: '1.22.0', fixed_version: '1.25.3', status: 'open', first_seen: dAgo(1), last_seen: dAgo(1) },
+]
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
@@ -376,6 +550,13 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
     }
 
     // POST /iocs/sync
+    // PATCH /compliance/controls/{id}/assessment
+    if (base.match(/^\/compliance\/controls\/\d+\/assessment$/)) return { status: 'compliant' } as unknown as T
+    // POST /compliance/controls/{id}/evidence
+    if (base.match(/^\/compliance\/controls\/\d+\/evidence$/)) return { id: Date.now(), title: '(demo)', evidence_type: 'document', description: null, created_at: new Date().toISOString() } as unknown as T
+    // PATCH /vulnerability/findings/{id}
+    if (base.match(/^\/vulnerability\/findings\/\d+$/)) return { id: 0, status: 'acknowledged' } as unknown as T
+
     if (base === '/iocs/sync') {
       return { status: 'accepted', task_id: 'demo-task-ioc-sync', tenant_id: 9999 } as unknown as T
     }
@@ -466,6 +647,14 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
 
   // ── GET: Log telemetry ────────────────────────────────────────────────────
   if (base === '/telemetry/logs' || base.startsWith('/telemetry/logs')) return DEMO_LOG_TELEMETRY as unknown as T
+
+  // ── GET: Compliance ───────────────────────────────────────────────────────
+  if (base === '/compliance/dashboard') return DEMO_COMPLIANCE_DASHBOARD as unknown as T
+  if (base.match(/^\/compliance\/controls\/\d+\/evidence$/)) return [] as unknown as T
+
+  // ── GET: Vulnerability Scanner ────────────────────────────────────────────
+  if (base === '/vulnerability/dashboard') return DEMO_VULN_DASHBOARD as unknown as T
+  if (base === '/vulnerability/findings')  return DEMO_VULN_FINDINGS  as unknown as T
 
   return [] as unknown as T
 }

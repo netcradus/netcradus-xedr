@@ -558,6 +558,7 @@ export default function Compliance() {
     setError(null)
     try {
       const d = await fetchComplianceDashboard()
+      if (!d || !Array.isArray(d.frameworks)) throw new Error('Unexpected response shape')
       setData(d)
       setSelectedFw(prev => {
         if (!prev && d.frameworks.length) return d.frameworks[0]
