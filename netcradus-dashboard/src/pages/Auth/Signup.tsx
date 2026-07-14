@@ -77,7 +77,7 @@ export default function Signup() {
           your org <span className="text-brand-blue">today</span>
         </>
       }
-      description="Join thousands of security teams that trust Netcrad to detect threats before they become incidents."
+      description="Join thousands of security teams that trust NET XDR to detect threats before they become incidents."
       features={FEATURES}
     >
       <h2 className="text-[26px] font-bold text-gray-900 mb-1.5">Create your account</h2>

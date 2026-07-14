@@ -13,7 +13,7 @@ import { fetchReportSummary } from '@/api/reportsApi'
 import type { ReportSummary } from '@/types/api.types'
 
 // ── Compliance framework data ─────────────────────────────────────────────────
-// Coverage is based on which detection categories NetcradXDR actively monitors.
+// Coverage is based on which detection categories NET XDR actively monitors.
 
 const FRAMEWORKS = [
   {
@@ -95,7 +95,7 @@ function formatDate(iso: string) {
 
 function downloadCSV(data: ReportSummary) {
   const rows: string[][] = [
-    ['NetcradXDR Security Report', '', ''],
+    ['NET XDR Security Report', '', ''],
     ['Generated', new Date().toISOString(), ''],
     ['Period', 'Last 30 days', ''],
     ['', '', ''],
@@ -129,7 +129,7 @@ function downloadCSV(data: ReportSummary) {
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
-  a.download = `netcradxdr-report-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `netxdr-report-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -140,7 +140,7 @@ function downloadJSON(data: ReportSummary) {
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
-  a.download = `netcradxdr-report-${new Date().toISOString().slice(0, 10)}.json`
+  a.download = `netxdr-report-${new Date().toISOString().slice(0, 10)}.json`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -330,7 +330,7 @@ function ComplianceTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
-        Coverage is derived from NetcradXDR's active monitoring capabilities. Green = monitored and covered. Gray = capability gap.
+        Coverage is derived from NET XDR's active monitoring capabilities. Green = monitored and covered. Gray = capability gap.
       </p>
       {FRAMEWORKS.map((fw) => {
         const covered = fw.controls.filter((c) => c.covered).length

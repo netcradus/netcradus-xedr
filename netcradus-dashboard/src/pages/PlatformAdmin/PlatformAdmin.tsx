@@ -1265,7 +1265,7 @@ export default function PlatformAdmin() {
             </div>
             <div>
               <p className="text-sm font-bold tracking-wide text-white">PLATFORM ADMIN</p>
-              <p className="text-[10px] text-white/40 leading-tight">NetcradXDR Operator Console</p>
+              <p className="text-[10px] text-white/40 leading-tight">NET XDR Operator Console</p>
             </div>
           </div>
         </div>

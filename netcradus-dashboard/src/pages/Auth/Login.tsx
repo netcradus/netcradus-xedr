@@ -4,7 +4,7 @@ import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import AuthLayout from './AuthLayout'
 import { useAuthStore } from '@/store/authStore'
 import { apiMfaVerify } from '@/api/authApi'
-import netcradIcon from '@/assets/images/netcrad-icon.png'
+import { LoginLogo } from '@/components/ui/BrandLogo'
 
 const FEATURES = [
   'Advanced threat detection with ML-powered analysis',
@@ -100,7 +100,7 @@ export default function Login() {
           </div>
           <h2 className="text-[26px] font-bold text-gray-900 mb-1">Authenticator code</h2>
           <p className="text-sm text-gray-500 text-center">
-            Open your authenticator app and enter the 6-digit code for <strong>NetcradXDR</strong>.
+            Open your authenticator app and enter the 6-digit code for <strong>NET XDR</strong>.
           </p>
         </div>
 
@@ -161,7 +161,7 @@ export default function Login() {
       description="Real-time threat detection, automated response, and compliance—all in one platform built for security teams that can't afford to miss a thing."
       features={FEATURES}
     >
-      <img src={netcradIcon} alt="Netcrad" className="h-24 w-24 object-contain mx-auto mb-8" />
+      <LoginLogo />
 
       <h2 className="text-[26px] font-bold text-gray-900 mb-1.5">Welcome back</h2>
       <p className="text-sm text-gray-500 mb-8">
@@ -240,7 +240,7 @@ export default function Login() {
           disabled={isLoading}
           className="w-full py-2.5 mt-2 rounded-lg bg-brand-blue text-white text-[15px] font-semibold hover:bg-[#2d5cc8] active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Signing in…' : 'Sign in to Netcrad'}
+          {isLoading ? 'Signing in…' : 'Sign in to NET XDR'}
         </button>
       </form>
 

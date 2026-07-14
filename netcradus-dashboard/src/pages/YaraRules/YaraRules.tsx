@@ -60,7 +60,7 @@ const EXAMPLE_YARA = `rule Example_Malware_Detector
     meta:
         description = "Example YARA rule"
         family      = "Example"
-        author      = "NetcradXDR"
+        author      = "NET XDR"
     strings:
         $s1 = "malicious_string" ascii nocase
         $s2 = "another_ioc"     ascii wide

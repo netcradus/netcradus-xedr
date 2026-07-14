@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import netcradIcon from '@/assets/images/netcrad-icon.png'
+import { SidebarLogo } from '@/components/ui/BrandLogo'
 import {
   LayoutGrid,
   Bell,
@@ -219,14 +219,7 @@ export default function Sidebar() {
       >
         {/* Logo */}
         <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <img src={netcradIcon} alt="Netcrad" className="h-9 w-9 object-contain" />
-            <div>
-              <p className="font-semibold leading-tight tracking-wide">NETCRAD</p>
-              <p className="text-[11px] text-white/50">Hybrid SIEM + SOAR Platform</p>
-              <p className="text-[11px] text-white/50">Powered by NETCRADUS</p>
-            </div>
-          </div>
+          <SidebarLogo />
           <button
             onClick={toggleSidebar}
             aria-label="Close menu"

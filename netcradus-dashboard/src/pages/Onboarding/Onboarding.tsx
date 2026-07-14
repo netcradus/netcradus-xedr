@@ -85,7 +85,7 @@ export default function Onboarding() {
             <ShieldCheck size={28} className="text-blue-400" />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">
-            Welcome to NetcradXDR!
+            Welcome to NET XDR!
           </h1>
           <p className="text-slate-400">
             Let's get your organization set up in a few quick steps.
@@ -124,7 +124,7 @@ export default function Onboarding() {
               <h3 className="font-semibold text-white">Your Tenant API Key</h3>
             </div>
             <p className="text-sm text-slate-400 mb-3">
-              Use this key when deploying NetcradXDR agents. Keep it secret.
+              Use this key when deploying NET XDR agents. Keep it secret.
             </p>
             {loadingOrg ? (
               <div className="flex items-center gap-2 text-slate-500 text-sm">
@@ -161,7 +161,7 @@ export default function Onboarding() {
             </div>
 
             <p className="text-xs text-slate-500 mt-3">
-              The agent is in <code className="text-slate-400">agent/</code> directory of the NetcradXDR repository.
+              The agent is in <code className="text-slate-400">agent/</code> directory of the NET XDR repository.
               Once running, it will appear in your Assets page within 60 seconds.
             </p>
           </div>

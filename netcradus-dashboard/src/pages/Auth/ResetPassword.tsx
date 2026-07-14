@@ -72,7 +72,7 @@ export default function ResetPassword() {
   return (
     <AuthLayout
       headline={<>Set a new<br /><span className="text-brand-blue">password</span></>}
-      description="Choose a strong password for your NetcradXDR account."
+      description="Choose a strong password for your NET XDR account."
       features={[
         'At least 8 characters',
         'Mix uppercase and lowercase',

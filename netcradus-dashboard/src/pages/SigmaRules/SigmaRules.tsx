@@ -16,7 +16,7 @@ const EXAMPLE_YAML = `title: Suspicious PowerShell Encoded Command
 id: 7d15c842-a918-4e4f-9b3d-7a2e8b0c5d4a
 status: experimental
 description: Detects PowerShell execution with encoded command argument
-author: NetcradXDR
+author: NET XDR
 date: 2024/01/15
 logsource:
     category: process_creation

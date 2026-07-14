@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react'
-import netcradIcon from '@/assets/images/netcrad-icon.png'
+import { AuthLogo, WatermarkMark } from '@/components/ui/BrandLogo'
 
 interface AuthLayoutProps {
   headline: ReactNode
@@ -35,7 +35,7 @@ export default function AuthLayout({
 
         {/* Layer 2 & 3: glow + large watermark logo, centerpiece of the empty space */}
         <div
-          className="hidden md:block absolute z-[2] pointer-events-none right-[5%] top-1/2 -translate-y-1/2 w-[150px] md:w-[260px] lg:w-[380px] xl:w-[460px] 2xl:w-[500px]"
+          className="hidden md:block absolute z-[2] pointer-events-none right-[5%] top-1/2 -translate-y-1/2 w-[120px] md:w-[200px] lg:w-[280px] xl:w-[340px] 2xl:w-[380px]"
           aria-hidden="true"
         >
           {/* Glow behind the logo */}
@@ -43,25 +43,17 @@ export default function AuthLayout({
             className="absolute -inset-16 rounded-full blur-2xl animate-fade-in-glow"
             style={{
               background:
-                'radial-gradient(circle, rgba(59,111,224,0.55) 0%, rgba(139,92,246,0.35) 45%, transparent 75%)',
+                'radial-gradient(circle, rgba(249,115,22,0.35) 0%, rgba(59,111,224,0.25) 45%, transparent 75%)',
             }}
           />
-          {/* Watermark logo */}
-          <img
-            src={netcradIcon}
-            alt=""
-            className="relative w-full object-contain blur-[1px] mix-blend-screen animate-fade-in-watermark"
-          />
+          {/* Watermark N-mark */}
+          <WatermarkMark />
         </div>
 
         {/* Layer 4: text content, always on top */}
         <div className="relative z-10 max-w-md">
-          <div className="flex items-center gap-3 mb-12">
-            <img src={netcradIcon} alt="Netcrad" className="h-11 w-11 object-contain shrink-0" />
-            <div>
-              <p className="font-bold tracking-wider leading-tight">NETCRAD</p>
-              <p className="text-[11px] text-white/50">Hybrid SIEM + SOAR Platform</p>
-            </div>
+          <div className="mb-12">
+            <AuthLogo />
           </div>
 
           <h1 className="text-4xl font-bold leading-tight mb-4">{headline}</h1>
