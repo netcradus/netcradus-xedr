@@ -19,6 +19,7 @@ export interface NavItem {
     | 'superAdmin'
     | 'detectionRules'
     | 'sigmaRules'
+    | 'yaraRules'
   badgeCount?: number
   isPremium?: boolean
 }
@@ -27,7 +28,8 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', path: '/', icon: 'dashboard' },
   { id: 'alerts', label: 'Alerts', path: '/alerts', icon: 'bell' },
   { id: 'detection-rules', label: 'Detection Rules', path: '/detection-rules', icon: 'detectionRules' },
-  { id: 'sigma-rules', label: 'Sigma Rules', path: '/sigma-rules', icon: 'sigmaRules' },
+  { id: 'sigma-rules', label: 'Sigma Rules',  path: '/sigma-rules',  icon: 'sigmaRules' },
+  { id: 'yara-rules',  label: 'YARA Rules',   path: '/yara-rules',   icon: 'yaraRules'  },
   { id: 'incidents', label: 'Incidents', path: '/incidents', icon: 'incidents' },
   { id: 'assets', label: 'Assets', path: '/assets', icon: 'assets' },
   { id: 'threat-intelligence', label: 'Threat Intelligence', path: '/threat-intelligence', icon: 'threatIntel' },

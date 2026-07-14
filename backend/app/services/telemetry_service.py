@@ -26,6 +26,7 @@ from app.services.rule_engine import (
     evaluate_persistence_rules,
     evaluate_process_rules,
 )
+from app.services.yara_service import scan_file_event as yara_scan_file_event
 
 
 def save_processes(db: Session, data: ProcessTelemetryRequest):
@@ -90,6 +91,15 @@ def save_file_events(db: Session, data: FileTelemetryRequest):
         match_file_iocs(db, event, agent.id, agent.tenant_id)
         detect_ransomware(db, event.event_type, event.file_path, agent.id)
         evaluate_file_rules(db, event, agent.id, agent.tenant_id)
+        yara_scan_file_event(
+            db,
+            tenant_id=agent.tenant_id,
+            agent_id=agent.id,
+            file_path=event.file_path,
+            sha256=event.sha256,
+            content_b64=getattr(event, "content_b64", None),
+            event_type=event.event_type,
+        )
 
     db.commit()
     return True

@@ -1,22 +1,26 @@
 """
 YARA rule engine.
 
-Uses the `yara-python` library when available.  When it is not installed the
-service degrades gracefully: rules are stored and managed through the API but
-scanning always returns no matches (a warning is logged at startup).
-
-Thread-safety: each `scan()` call compiles a private yara.Rules object from
-the tenant's enabled rules.  We keep a per-tenant compiled-rules cache with a
-60-second TTL so we do not recompile on every telemetry event.
+Key design points:
+  • Uses yara-python when available; degrades gracefully to no-op when absent.
+  • Per-tenant compiled-rules cache (60s TTL) avoids recompiling on every event.
+  • Namespace format "rule_{id}" lets us look up the exact DB row from each match
+    to extract malware_family, severity, and MITRE metadata — replaces the previous
+    fragile content.contains() heuristic.
+  • Every match is persisted as a YaraScanResult for the scan history page.
+  • Alerts carry the malware family name when known: "Malware Detected: Emotet".
 """
+import base64
 import logging
 import threading
 import time
-from typing import List, Optional
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.models.yara_rule import YaraRule
+from app.models.yara_scan_result import YaraScanResult
 from app.services.alert_service import create_alert_if_not_exists
 
 _log = logging.getLogger("netcradxdr.yara")
@@ -26,17 +30,21 @@ try:
     _YARA_AVAILABLE = True
 except ImportError:
     _YARA_AVAILABLE = False
-    _log.warning("yara-python not installed — YARA scanning disabled. Run: pip install yara-python")
+    _log.warning(
+        "yara-python not installed — YARA scanning disabled. "
+        "Install with: pip install yara-python"
+    )
 
 
 # ── Compiled rule cache ───────────────────────────────────────────────────────
 
-_compiled_cache: dict[int, tuple] = {}  # tenant_id -> (compiled_rules, expires_at)
+_compiled_cache: dict[int, tuple] = {}   # tenant_id → (compiled_rules, expires_at)
 _cache_lock = threading.Lock()
-_CACHE_TTL = 60
+_CACHE_TTL = 60   # seconds
 
 
 def invalidate_yara_cache(tenant_id: int) -> None:
+    """Evict the compiled cache entry for a tenant (call after any rule change)."""
     with _cache_lock:
         _compiled_cache.pop(tenant_id, None)
 
@@ -44,6 +52,7 @@ def invalidate_yara_cache(tenant_id: int) -> None:
 def _get_compiled(db: Session, tenant_id: int):
     if not _YARA_AVAILABLE:
         return None
+
     now = time.monotonic()
     with _cache_lock:
         hit = _compiled_cache.get(tenant_id)
@@ -61,11 +70,8 @@ def _get_compiled(db: Session, tenant_id: int):
     if not rules:
         return None
 
-    sources = {}
-    for r in rules:
-        namespace = f"rule_{r.id}"
-        sources[namespace] = r.content
-
+    # Namespace format "rule_<id>" lets _rule_id_from_namespace() look up the DB row.
+    sources = {f"rule_{r.id}": r.content for r in rules}
     try:
         compiled = _yara.compile(sources=sources)
     except Exception as exc:
@@ -77,16 +83,35 @@ def _get_compiled(db: Session, tenant_id: int):
     return compiled
 
 
-# ── Scanning ──────────────────────────────────────────────────────────────────
+def _rule_id_from_namespace(namespace: str) -> Optional[int]:
+    """Extract the DB rule id from a yara match namespace (format 'rule_<id>')."""
+    try:
+        return int(namespace.split("_", 1)[1])
+    except (IndexError, ValueError):
+        return None
+
+
+# ── Core scan ─────────────────────────────────────────────────────────────────
 
 def scan_data(
     db: Session,
     tenant_id: int,
-    agent_id: int,
+    agent_id: Optional[int],
     data: bytes,
-    context_label: str,
-) -> List[str]:
-    """Scan `data` against tenant YARA rules. Returns list of matched rule names."""
+    file_path: Optional[str] = None,
+    sha256: Optional[str] = None,
+    scan_context: str = "auto",
+) -> list[dict]:
+    """
+    Scan `data` against all enabled YARA rules for `tenant_id`.
+
+    Returns a list of match dicts:
+      { rule_name, malware_family, severity, mitre_tactic, mitre_technique }
+
+    Side effects:
+      • Inserts a YaraScanResult row for every match.
+      • Fires an alert via create_alert_if_not_exists when agent_id is provided.
+    """
     compiled = _get_compiled(db, tenant_id)
     if compiled is None:
         return []
@@ -97,29 +122,95 @@ def scan_data(
         _log.warning("YARA scan error: %s", exc)
         return []
 
-    matched_names = []
+    results = []
     for m in matches:
-        matched_names.append(m.rule)
-        # Look up severity / mitre from the DB rule
-        rule_row = db.query(YaraRule).filter(
-            YaraRule.content.contains(m.rule),
-            YaraRule.enabled.is_(True),
-        ).first()
-        severity = (rule_row.severity if rule_row else "High")
-        technique = (rule_row.mitre_technique if rule_row else "")
-        create_alert_if_not_exists(
-            db,
-            f"YARA Match: {m.rule}",
-            f"YARA rule '{m.rule}' matched on {context_label}",
-            severity, technique, agent_id,
-        )
-    return matched_names
+        # Resolve the DB rule from the match namespace
+        rule_id = _rule_id_from_namespace(m.namespace)
+        db_rule = db.query(YaraRule).filter(YaraRule.id == rule_id).first() if rule_id else None
 
+        family    = (db_rule.malware_family  if db_rule else None) or m.rule
+        severity  = (db_rule.severity        if db_rule else "High")
+        tactic    = (db_rule.mitre_tactic    if db_rule else None)
+        technique = (db_rule.mitre_technique if db_rule else None)
+
+        db.add(YaraScanResult(
+            file_path=file_path,
+            sha256=sha256,
+            matched_rule_name=m.rule,
+            malware_family=family,
+            severity=severity,
+            mitre_tactic=tactic,
+            mitre_technique=technique,
+            scan_context=scan_context,
+            agent_id=agent_id,
+            tenant_id=tenant_id,
+            created_at=datetime.utcnow(),
+        ))
+
+        if agent_id:
+            title = f"Malware Detected: {family}" if family else f"YARA Match: {m.rule}"
+            desc = (
+                f"YARA rule '{m.rule}' matched"
+                + (f" on '{file_path}'" if file_path else "")
+                + (f" [sha256: {sha256[:16]}…]" if sha256 else "")
+                + (f" — Family: {family}" if family else "")
+            )
+            create_alert_if_not_exists(db, title, desc, severity, technique or "", agent_id)
+
+        results.append({
+            "rule_name":      m.rule,
+            "malware_family": family,
+            "severity":       severity,
+            "mitre_tactic":   tactic,
+            "mitre_technique": technique,
+        })
+
+    if results:
+        db.commit()
+
+    return results
+
+
+# ── File telemetry integration ────────────────────────────────────────────────
+
+def scan_file_event(
+    db: Session,
+    tenant_id: int,
+    agent_id: Optional[int],
+    file_path: str,
+    sha256: Optional[str],
+    content_b64: Optional[str],
+    event_type: str = "auto",
+) -> list[dict]:
+    """
+    Entry point called from save_file_events() for each file telemetry record.
+
+    When content_b64 is provided (agent sent file bytes as base64), scan the
+    actual bytes — this gives full YARA coverage.  When absent, scan the
+    file_path string so that path-pattern rules (e.g. matching suspicious
+    download locations or extensions) can still fire.
+    """
+    if content_b64:
+        try:
+            data = base64.b64decode(content_b64)
+        except Exception:
+            data = file_path.encode()
+    else:
+        data = file_path.encode()
+
+    context = "download" if event_type.lower() in {"download", "downloaded"} else "auto"
+    return scan_data(
+        db, tenant_id, agent_id, data,
+        file_path=file_path, sha256=sha256, scan_context=context,
+    )
+
+
+# ── Syntax validation ─────────────────────────────────────────────────────────
 
 def validate_rule_content(content: str) -> Optional[str]:
-    """Return None if valid, else an error string."""
+    """Return None if the YARA rule compiles cleanly, else an error string."""
     if not _YARA_AVAILABLE:
-        return None  # can't validate — accept optimistically
+        return None   # accept optimistically when yara-python is absent
     try:
         _yara.compile(source=content)
         return None

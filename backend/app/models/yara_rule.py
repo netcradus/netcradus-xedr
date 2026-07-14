@@ -11,7 +11,8 @@ class YaraRule(Base):
     description = Column(String)
     tags        = Column(String)           # space-separated YARA tags
     content     = Column(Text, nullable=False)  # raw YARA rule text
-    severity    = Column(String, default="High")
+    severity        = Column(String, default="High")
+    malware_family  = Column(String, nullable=True)
     mitre_tactic    = Column(String)
     mitre_technique = Column(String)
     enabled     = Column(Boolean, default=True, nullable=False)

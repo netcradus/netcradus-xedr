@@ -13,6 +13,12 @@ class FileEvent(BaseModel):
 
     md5: Optional[str] = None
 
+    # Agent may include base64-encoded file bytes for YARA content scanning.
+    # When absent, the YARA engine scans the file_path string instead.
+    content_b64: Optional[str] = None
+
+    file_size: Optional[int] = None
+
 
 class FileTelemetryRequest(BaseModel):
 

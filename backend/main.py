@@ -67,6 +67,7 @@ from app.services.tenant_service import create_default_tenant
 from app.services.platform_admin_service import seed_platform_admin
 from app.services.detection_rule_seed import seed_detection_rules
 from app.services.playbook_seed import seed_playbooks
+from app.services.yara_rule_seed import seed_yara_rules
 
 app = FastAPI(title="NetcradXDR", version="1.0.0")
 
@@ -192,6 +193,7 @@ def startup():
     seed_platform_admin(db)
     seed_detection_rules(db)
     seed_playbooks(db)
+    seed_yara_rules(db)
     db.close()
 
 
