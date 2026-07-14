@@ -28,6 +28,7 @@ import {
   Loader2,
   ShieldAlert,
   Crown,
+  ShieldCheck,
 } from 'lucide-react'
 import { NAV_ITEMS, type NavItem } from '@/constants/navItems'
 import { useAuthStore } from '@/store/authStore'
@@ -52,6 +53,7 @@ const ICONS: Record<NavItem['icon'], React.ElementType> = {
   auditLogs: ScrollText,
   superAdmin: Building2,
   detectionRules: ShieldAlert,
+  compliance: ShieldCheck,
 }
 
 // ── Support ticket modal ──────────────────────────────────────────────────────

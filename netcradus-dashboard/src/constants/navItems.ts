@@ -20,6 +20,7 @@ export interface NavItem {
     | 'detectionRules'
     | 'sigmaRules'
     | 'yaraRules'
+    | 'compliance'
   badgeCount?: number
   isPremium?: boolean
 }
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'attack-graph', label: 'Attack Graph', path: '/attack-graph', icon: 'attackGraph', isPremium: true },
   { id: 'threat-hunting', label: 'Threat Hunting', path: '/threat-hunting', icon: 'threatHunting' },
   { id: 'ai-query', label: 'AI Query', path: '/ai-query', icon: 'aiQuery' },
+  { id: 'compliance', label: 'Compliance', path: '/compliance', icon: 'compliance' },
   { id: 'reports', label: 'Reports & Compliance', path: '/reports', icon: 'reports' },
   { id: 'integrations', label: 'Integrations', path: '/integrations', icon: 'integrations' },
   { id: 'settings', label: 'Settings', path: '/settings', icon: 'settings' },

@@ -19,6 +19,10 @@ from app.models.scheduled_report import ScheduledReportConfig
 from app.models.generated_report import GeneratedReport
 from app.models.log_telemetry import LogTelemetry
 from app.models.agent_version import AgentVersion
+from app.models.compliance_framework import ComplianceFramework
+from app.models.compliance_control import ComplianceControl
+from app.models.compliance_assessment import ComplianceAssessment
+from app.models.compliance_evidence import ComplianceEvidence
 
 __all__ = [
     "Agent",
@@ -42,4 +46,8 @@ __all__ = [
     "GeneratedReport",
     "LogTelemetry",
     "AgentVersion",
+    "ComplianceFramework",
+    "ComplianceControl",
+    "ComplianceAssessment",
+    "ComplianceEvidence",
 ]

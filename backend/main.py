@@ -60,6 +60,7 @@ from app.api.live_response import router as live_response_router
 from app.api.playbooks import router as playbooks_router
 from app.api.mitre import router as mitre_router
 from app.api.attack_graph import router as attack_graph_router
+from app.api.compliance import router as compliance_router
 from app.middleware.latency import LatencyMiddleware
 
 from app.services.role_service import seed_roles
@@ -68,6 +69,7 @@ from app.services.platform_admin_service import seed_platform_admin
 from app.services.detection_rule_seed import seed_detection_rules
 from app.services.playbook_seed import seed_playbooks
 from app.services.yara_rule_seed import seed_yara_rules
+from app.services.compliance_seed import seed_compliance
 
 app = FastAPI(title="NetcradXDR", version="1.0.0")
 
@@ -166,6 +168,7 @@ v1.include_router(live_response_router)
 v1.include_router(playbooks_router)
 v1.include_router(mitre_router)
 v1.include_router(attack_graph_router)
+v1.include_router(compliance_router)
 app.include_router(v1)
 
 
@@ -194,6 +197,7 @@ def startup():
     seed_detection_rules(db)
     seed_playbooks(db)
     seed_yara_rules(db)
+    seed_compliance(db)
     db.close()
 
 
