@@ -62,6 +62,7 @@ from app.api.mitre import router as mitre_router
 from app.api.attack_graph import router as attack_graph_router
 from app.api.compliance import router as compliance_router
 from app.api.vulnerability import router as vulnerability_router
+from app.api.browser_security import router as browser_security_router
 from app.middleware.latency import LatencyMiddleware
 
 from app.services.role_service import seed_roles
@@ -171,6 +172,7 @@ v1.include_router(mitre_router)
 v1.include_router(attack_graph_router)
 v1.include_router(compliance_router)
 v1.include_router(vulnerability_router)
+v1.include_router(browser_security_router)
 app.include_router(v1)
 
 

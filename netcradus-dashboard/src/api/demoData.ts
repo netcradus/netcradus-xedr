@@ -490,6 +490,140 @@ const DEMO_VULN_FINDINGS = [
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
+// ── Browser Security mock data ────────────────────────────────────────────────
+
+const _bsNow = new Date().toISOString()
+const _bsHrs = (h: number) => new Date(Date.now() - h * 3600_000).toISOString()
+
+const DEMO_BROWSER_DASHBOARD = {
+  total_open: 23,
+  by_type: {
+    extension:          7,
+    password_leak:      4,
+    ai_usage:           5,
+    malicious_download: 3,
+    malicious_site:     4,
+  },
+  by_severity: { Critical: 5, High: 10, Medium: 6, Low: 2, Info: 0 },
+  by_browser:  { chrome: 14, edge: 6, firefox: 3 },
+  recent_events: [],
+}
+
+const DEMO_BROWSER_EVENTS = [
+  {
+    id: 1, agent_id: 1,
+    event_type: 'extension', severity: 'Critical', browser: 'chrome',
+    title: 'Dangerous browser extension: Stylish',
+    description: 'Known malicious extension ID; Critical permissions: nativeMessaging, debugger',
+    url: null, extension_id: 'fjnbnpbmkenffdnngjfgmeleoegfcffe', extension_name: 'Stylish',
+    file_name: null, file_path: null, sha256: null, username: 'jdoe',
+    status: 'open', detected_at: _bsHrs(1),
+  },
+  {
+    id: 2, agent_id: 1,
+    event_type: 'extension', severity: 'High', browser: 'chrome',
+    title: 'Dangerous browser extension: HTTP Request Modifier',
+    description: 'Sideloaded extension (not from official store); Sensitive permissions: cookies, history',
+    url: null, extension_id: 'bfbmjmiodbnnpllbbbfblcplfjjepjdn', extension_name: 'HTTP Request Modifier',
+    file_name: null, file_path: null, sha256: null, username: 'jdoe',
+    status: 'open', detected_at: _bsHrs(2),
+  },
+  {
+    id: 3, agent_id: 2,
+    event_type: 'extension', severity: 'High', browser: 'edge',
+    title: 'Dangerous browser extension: Tab Manager Pro',
+    description: 'Sensitive permissions: management, cookies, history',
+    url: null, extension_id: 'aabbccddeeff00112233', extension_name: 'Tab Manager Pro',
+    file_name: null, file_path: null, sha256: null, username: 'asmith',
+    status: 'open', detected_at: _bsHrs(4),
+  },
+  {
+    id: 4, agent_id: 1,
+    event_type: 'password_leak', severity: 'High', browser: 'chrome',
+    title: 'Browser-saved passwords detected (142 entries)',
+    description: 'Chrome has 142 saved passwords stored in Login Data. These are encrypted with Windows DPAPI but are accessible to any process running as the same user and are targeted by infostealer malware.',
+    url: null, extension_id: null, extension_name: null,
+    file_name: null, file_path: null, sha256: null, username: 'jdoe',
+    status: 'open', detected_at: _bsHrs(3),
+  },
+  {
+    id: 5, agent_id: 2,
+    event_type: 'password_leak', severity: 'High', browser: 'firefox',
+    title: 'Firefox saved passwords detected (67 entries)',
+    description: 'Firefox has 67 saved passwords in logins.json. Without a Primary Password set, these can be decrypted by any process with filesystem access.',
+    url: null, extension_id: null, extension_name: null,
+    file_name: null, file_path: null, sha256: null, username: 'asmith',
+    status: 'acknowledged', detected_at: _bsHrs(6),
+  },
+  {
+    id: 6, agent_id: 3,
+    event_type: 'ai_usage', severity: 'Medium', browser: 'chrome',
+    title: 'AI platform usage detected: chat.openai.com',
+    description: 'User accessed chat.openai.com in the last 7 days via chrome. Sensitive corporate data may have been shared with an external AI service. Review acceptable use policy.',
+    url: 'https://chat.openai.com', extension_id: null, extension_name: null,
+    file_name: null, file_path: null, sha256: null, username: 'bwilson',
+    status: 'open', detected_at: _bsHrs(5),
+  },
+  {
+    id: 7, agent_id: 1,
+    event_type: 'ai_usage', severity: 'Medium', browser: 'chrome, edge',
+    title: 'AI platform usage detected: claude.ai',
+    description: 'User accessed claude.ai in the last 7 days via chrome, edge. Sensitive corporate data may have been shared with an external AI service. Review acceptable use policy.',
+    url: 'https://claude.ai', extension_id: null, extension_name: null,
+    file_name: null, file_path: null, sha256: null, username: 'jdoe',
+    status: 'open', detected_at: _bsHrs(8),
+  },
+  {
+    id: 8, agent_id: 2,
+    event_type: 'ai_usage', severity: 'Medium', browser: 'firefox',
+    title: 'AI platform usage detected: perplexity.ai',
+    description: 'User accessed perplexity.ai in the last 7 days via firefox. Sensitive corporate data may have been shared with an external AI service.',
+    url: 'https://perplexity.ai', extension_id: null, extension_name: null,
+    file_name: null, file_path: null, sha256: null, username: 'asmith',
+    status: 'resolved', detected_at: _bsHrs(12),
+  },
+  {
+    id: 9, agent_id: 3,
+    event_type: 'malicious_download', severity: 'Critical', browser: null,
+    title: 'Suspicious download: update_installer.exe',
+    description: "Executable or script file 'update_installer.exe' was downloaded recently. Verify this file is legitimate before executing.",
+    url: null, extension_id: null, extension_name: null,
+    file_name: 'update_installer.exe', file_path: 'C:\\Users\\bwilson\\Downloads\\update_installer.exe',
+    sha256: 'a3f4e270f2ddaaa214e904f3970558cad0967aadeea2165dba1ae6bbcd4a943b',
+    username: 'bwilson', status: 'open', detected_at: _bsHrs(2),
+  },
+  {
+    id: 10, agent_id: 1,
+    event_type: 'malicious_download', severity: 'High', browser: null,
+    title: 'Suspicious download: macro_enabled.ps1',
+    description: "Script file 'macro_enabled.ps1' was downloaded recently. PowerShell scripts are commonly used in malware delivery chains.",
+    url: null, extension_id: null, extension_name: null,
+    file_name: 'macro_enabled.ps1', file_path: 'C:\\Users\\jdoe\\Downloads\\macro_enabled.ps1',
+    sha256: 'b7e3a12c4d9f021e8a6b5c3d7e9f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6',
+    username: 'jdoe', status: 'open', detected_at: _bsHrs(7),
+  },
+  {
+    id: 11, agent_id: 2,
+    event_type: 'malicious_site', severity: 'High', browser: 'chrome',
+    title: 'Suspected malicious site visit: http://login-secure-bankofamerica-.tk/verify',
+    description: "Browser history contains a visit to a URL matching the suspicious pattern 'login-secure-'. This may indicate phishing or drive-by download activity.",
+    url: 'http://login-secure-bankofamerica-.tk/verify',
+    extension_id: null, extension_name: null,
+    file_name: null, file_path: null, sha256: null, username: 'asmith',
+    status: 'open', detected_at: _bsHrs(10),
+  },
+  {
+    id: 12, agent_id: 3,
+    event_type: 'malicious_site', severity: 'High', browser: 'edge',
+    title: 'Suspected malicious site visit: https://ngrok-free.app/c2endpoint',
+    description: "Browser history contains a visit to a URL matching the suspicious pattern 'ngrok-free.app'. Ngrok tunnels in browsing history may indicate C2 communication or data exfiltration.",
+    url: 'https://ngrok-free.app/c2endpoint',
+    extension_id: null, extension_name: null,
+    file_name: null, file_path: null, sha256: null, username: 'bwilson',
+    status: 'open', detected_at: _bsHrs(14),
+  },
+]
+
 export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   const base = path.split('?')[0].replace(/\/+$/, '')
 
@@ -655,6 +789,15 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   // ── GET: Vulnerability Scanner ────────────────────────────────────────────
   if (base === '/vulnerability/dashboard') return DEMO_VULN_DASHBOARD as unknown as T
   if (base === '/vulnerability/findings')  return DEMO_VULN_FINDINGS  as unknown as T
+
+  // ── GET: Browser Security ─────────────────────────────────────────────────
+  if (base === '/browser-security/dashboard') return DEMO_BROWSER_DASHBOARD as unknown as T
+  if (base === '/browser-security/events')    return DEMO_BROWSER_EVENTS    as unknown as T
+
+  // ── PATCH: Browser Security event status ──────────────────────────────────
+  if (method === 'PATCH' && base.match(/^\/browser-security\/events\/\d+$/)) {
+    return { id: 1, status: 'acknowledged' } as unknown as T
+  }
 
   return [] as unknown as T
 }

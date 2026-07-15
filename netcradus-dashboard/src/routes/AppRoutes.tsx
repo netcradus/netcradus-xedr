@@ -26,6 +26,7 @@ import SuperAdmin from '@/pages/SuperAdmin/SuperAdmin'
 import DetectionRules from '@/pages/DetectionRules/DetectionRules'
 import Compliance from '@/pages/Compliance/Compliance'
 import VulnerabilityScanner from '@/pages/VulnerabilityScanner/VulnerabilityScanner'
+import BrowserSecurity from '@/pages/BrowserSecurity/BrowserSecurity'
 import PlatformAdmin from '@/pages/PlatformAdmin/PlatformAdmin'
 import { useAuthStore } from '@/store/authStore'
 
@@ -78,7 +79,8 @@ export default function AppRoutes() {
                 <Route path="/threat-hunting" element={<ThreatHunting />} />
                 <Route path="/sigma-rules" element={<SigmaRules />} />
                 <Route path="/yara-rules" element={<YaraRules />} />
-                <Route path="/vuln-scanner" element={<VulnerabilityScanner />} />
+                <Route path="/vuln-scanner"      element={<VulnerabilityScanner />} />
+                <Route path="/browser-security" element={<BrowserSecurity />} />
                 <Route path="/compliance" element={<Compliance />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/integrations" element={<Integrations />} />

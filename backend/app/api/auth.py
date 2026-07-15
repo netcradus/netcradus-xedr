@@ -153,7 +153,10 @@ def register(
     if not admin_role:
         raise HTTPException(status_code=500, detail="Roles not seeded — run seed.py first")
 
-    verification_token = secrets.token_urlsafe(32)
+    # Auto-verify when SMTP is not configured (dev / no-email environments)
+    smtp_enabled = bool(settings.smtp_host and settings.smtp_host.strip())
+    verification_token = secrets.token_urlsafe(32) if smtp_enabled else None
+
     user = User(
         name=body.name.strip(),
         email=body.email,
@@ -161,16 +164,17 @@ def register(
         role_id=admin_role.id,
         tenant_id=tenant.id,
         is_active=True,
-        email_verified=False,
+        email_verified=not smtp_enabled,   # auto-verify when no SMTP
         email_verification_token=verification_token,
     )
     db.add(user)
     db.commit()
 
-    try:
-        send_verification_email(user.email, verification_token)
-    except Exception:
-        pass
+    if smtp_enabled and verification_token:
+        try:
+            send_verification_email(user.email, verification_token)
+        except Exception:
+            pass
 
     try:
         from app.services.audit_service import log_event
@@ -188,7 +192,7 @@ def register(
         "token_type": "bearer",
         "tenant_api_key": tenant.api_key,
         "tenant_name": tenant.name,
-        "email_verified": False,
+        "email_verified": user.email_verified,
     }
 
 

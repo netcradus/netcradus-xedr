@@ -2,10 +2,14 @@ from celery import Celery
 from celery.schedules import crontab
 from app.core.config import settings
 
+_redis = settings.redis_url.strip() if settings.redis_url else ""
+_broker  = _redis or "memory://"
+_backend = _redis or "cache+memory://"
+
 celery_app = Celery(
     "netcradxdr",
-    broker=settings.redis_url,
-    backend=settings.redis_url,
+    broker=_broker,
+    backend=_backend,
     include=[
         "app.tasks.agents",
         "app.tasks.enrichment",
@@ -17,6 +21,10 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
+    # Run tasks inline (no worker/broker needed) when Redis is not configured
+    task_always_eager=not bool(_redis),
+    task_eager_propagates=False,   # don't let inline task errors crash the caller
+
     # Serialization
     task_serializer="json",
     result_serializer="json",

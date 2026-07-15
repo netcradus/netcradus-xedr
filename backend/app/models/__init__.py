@@ -25,6 +25,7 @@ from app.models.compliance_assessment import ComplianceAssessment
 from app.models.compliance_evidence import ComplianceEvidence
 from app.models.vuln_scan import VulnScan
 from app.models.vuln_finding import VulnFinding
+from app.models.browser_security_event import BrowserSecurityEvent
 
 __all__ = [
     "Agent",
@@ -54,4 +55,5 @@ __all__ = [
     "ComplianceEvidence",
     "VulnScan",
     "VulnFinding",
+    "BrowserSecurityEvent",
 ]

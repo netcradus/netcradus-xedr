@@ -11,6 +11,10 @@ from app.core.security import (
     SECRET_KEY,
     ALGORITHM
 )
+from app.core.config import settings
+
+# Email verification is only enforced when SMTP is configured
+_SMTP_ENABLED = bool(settings.smtp_host and settings.smtp_host.strip())
 
 
 def get_current_user(
@@ -48,7 +52,7 @@ def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
-    if not user.email_verified:
+    if _SMTP_ENABLED and not user.email_verified:
         raise HTTPException(
             status_code=403,
             detail="EMAIL_NOT_VERIFIED",

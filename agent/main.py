@@ -18,6 +18,7 @@ from web_log_monitor import collect_web_logs
 from app_log_monitor import collect_app_logs
 from update_manager import check_and_apply
 from vuln_scanner import run_all_checks
+from browser_monitor import run_all_checks as run_browser_checks
 
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -45,6 +46,9 @@ UPDATE_CHECK_INTERVAL = config.get("update_check_interval", 6)
 
 # Vulnerability scan runs every N cycles (default 360 × 10 s = every 60 min)
 VULN_SCAN_INTERVAL = config.get("vuln_scan_interval", 360)
+
+# Browser security scan runs every N cycles (default 720 × 10 s = every 2 hr)
+BROWSER_SCAN_INTERVAL = config.get("browser_scan_interval", 720)
 
 _LOG_CFG = config.get("log_sources", {})
 
@@ -143,6 +147,24 @@ def main():
                         print("[vuln] No findings")
                 except Exception as e:
                     print(f"[vuln] Scan error: {e}")
+
+            # Browser security scan (every BROWSER_SCAN_INTERVAL cycles)
+            if cycle % BROWSER_SCAN_INTERVAL == 0:
+                try:
+                    print("[browser] Running browser security scan...")
+                    browser_events = run_browser_checks()
+                    if browser_events:
+                        import requests as _req
+                        _req.post(
+                            f"{SERVER_URL}/browser-security/events/ingest",
+                            json={"agent_token": AGENT_TOKEN, "events": browser_events},
+                            timeout=30,
+                        )
+                        print(f"[browser] Submitted {len(browser_events)} event(s)")
+                    else:
+                        print("[browser] No events")
+                except Exception as e:
+                    print(f"[browser] Scan error: {e}")
 
             # Update check (every UPDATE_CHECK_INTERVAL cycles)
             cycle += 1
