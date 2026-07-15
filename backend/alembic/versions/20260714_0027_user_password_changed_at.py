@@ -14,10 +14,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "users",
-        sa.Column("password_changed_at", sa.DateTime(), nullable=True),
-    )
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    existing_cols = {c['name'] for c in insp.get_columns('users')}
+    if 'password_changed_at' not in existing_cols:
+        op.add_column(
+            "users",
+            sa.Column("password_changed_at", sa.DateTime(), nullable=True),
+        )
 
 
 def downgrade() -> None:

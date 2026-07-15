@@ -5,12 +5,17 @@
  */
 
 const ORANGE = '#F97316'
+const NAVY   = '#0f2356'  // dark colour for light-background variant
 
 // ── Icon-only mark (compact, used as favicon-style element) ──────────────────
+// variant "dark"  → white left stroke (for dark / navy backgrounds)
+// variant "light" → navy left stroke  (for white / light backgrounds)
 
-export function BrandMark({ size = 32 }: { size?: number }) {
-  const id = `nmark-${size}`
-  const w  = size * 0.55  // viewBox is 22×32
+export function BrandMark({ size = 32, variant = 'dark' }: { size?: number; variant?: 'dark' | 'light' }) {
+  const id        = `nmark-${size}-${variant}`
+  const w         = size * 0.55  // viewBox is 22×32
+  const leftColor = variant === 'light' ? NAVY : 'white'
+  const gradFrom  = variant === 'light' ? NAVY : 'white'
 
   return (
     <svg
@@ -22,13 +27,13 @@ export function BrandMark({ size = 32 }: { size?: number }) {
     >
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="white" />
+          <stop offset="0%"   stopColor={gradFrom} />
           <stop offset="100%" stopColor={ORANGE} />
         </linearGradient>
       </defs>
-      {/* Left vertical — white */}
-      <rect x="0" y="0" width="4.5" height="32" rx="1" fill="white" />
-      {/* Diagonal — white-to-orange gradient */}
+      {/* Left vertical */}
+      <rect x="0" y="0" width="4.5" height="32" rx="1" fill={leftColor} />
+      {/* Diagonal — left-to-orange gradient */}
       <polygon points="4.5,0 9,0 17,32 12.5,32" fill={`url(#${id})`} />
       {/* Right vertical — orange */}
       <rect x="17" y="0" width="4.5" height="32" rx="1" fill={ORANGE} />
@@ -98,14 +103,14 @@ export function WatermarkMark() {
   )
 }
 
-// ── Login page mobile logo (centered, large) ──────────────────────────────────
+// ── Login page logo (centred, large, on white panel) ─────────────────────────
 
 export function LoginLogo() {
   return (
     <div className="flex flex-col items-center gap-3 mb-8">
-      <BrandMark size={72} />
+      <BrandMark size={72} variant="light" />
       <p className="text-2xl font-black tracking-[0.2em]">
-        <span className="text-gray-900">NET</span>
+        <span style={{ color: NAVY }}>NET</span>
         <span style={{ color: ORANGE }}> XDR</span>
       </p>
     </div>

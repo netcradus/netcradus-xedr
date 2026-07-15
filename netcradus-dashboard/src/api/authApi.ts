@@ -92,7 +92,11 @@ export async function apiLogin(
     saveSession(user)
     return { success: true, user }
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Unable to sign in.'
+    const raw = e instanceof Error ? e.message : ''
+    const isNetworkError = raw === 'Failed to fetch' || raw.toLowerCase().includes('networkerror')
+    const msg = isNetworkError
+      ? 'Cannot connect to the server. Make sure the backend is running, or use the demo account (demo@netcradus.com / Demo@1234).'
+      : raw || 'Unable to sign in.'
     return { success: false, error: msg }
   }
 }

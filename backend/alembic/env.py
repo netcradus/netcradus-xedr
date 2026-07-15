@@ -2,15 +2,18 @@ from logging.config import fileConfig
 from pathlib import Path
 import sys
 
-from alembic import context
-from sqlalchemy import engine_from_config, pool
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
-if str(BASE_DIR) not in sys.path:
+# Load .env before importing settings so SECRET_KEY and DATABASE_URL are available
+load_dotenv(BASE_DIR / ".env")
 
+if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+from alembic import context
+from sqlalchemy import engine_from_config, pool
 from app.core.config import settings
 from app.database.db import Base
 import app.models

@@ -48,7 +48,7 @@ function AgentOnboardingModal({
   const [step, setStep] = useState(0)
   const [info, setInfo] = useState<OnboardingInfo | null>(null)
   const [loading, setLoading] = useState(true)
-  const [serverUrl, setServerUrl] = useState(window.location.origin.replace(':5173', ':8000'))
+  const [serverUrl, setServerUrl] = useState(window.location.origin.replace(':5173', ':8888'))
 
   // Verification state
   const [initialAgentIds, setInitialAgentIds] = useState<Set<number>>(new Set())

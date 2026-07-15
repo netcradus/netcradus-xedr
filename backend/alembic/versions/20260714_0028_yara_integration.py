@@ -14,25 +14,39 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("yara_rules", sa.Column("malware_family", sa.String(), nullable=True))
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
 
-    op.create_table(
-        "yara_scan_results",
-        sa.Column("id",                sa.Integer(),  primary_key=True),
-        sa.Column("file_path",         sa.String(),   nullable=True),
-        sa.Column("sha256",            sa.String(),   nullable=True),
-        sa.Column("matched_rule_name", sa.String(),   nullable=False),
-        sa.Column("malware_family",    sa.String(),   nullable=True),
-        sa.Column("severity",          sa.String(),   nullable=False),
-        sa.Column("mitre_tactic",      sa.String(),   nullable=True),
-        sa.Column("mitre_technique",   sa.String(),   nullable=True),
-        sa.Column("scan_context",      sa.String(),   nullable=True),
-        sa.Column("agent_id",   sa.Integer(), sa.ForeignKey("agents.id"),  nullable=True),
-        sa.Column("tenant_id",  sa.Integer(), sa.ForeignKey("tenants.id"), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-    )
-    op.create_index("ix_yara_scan_results_tenant_id",  "yara_scan_results", ["tenant_id"])
-    op.create_index("ix_yara_scan_results_created_at", "yara_scan_results", ["created_at"])
+    # Add malware_family to yara_rules if missing
+    yara_cols = {c['name'] for c in insp.get_columns('yara_rules')}
+    if 'malware_family' not in yara_cols:
+        op.add_column("yara_rules", sa.Column("malware_family", sa.String(), nullable=True))
+
+    # Create yara_scan_results if missing
+    if not insp.has_table("yara_scan_results"):
+        op.create_table(
+            "yara_scan_results",
+            sa.Column("id",                sa.Integer(),  primary_key=True),
+            sa.Column("file_path",         sa.String(),   nullable=True),
+            sa.Column("sha256",            sa.String(),   nullable=True),
+            sa.Column("matched_rule_name", sa.String(),   nullable=False),
+            sa.Column("malware_family",    sa.String(),   nullable=True),
+            sa.Column("severity",          sa.String(),   nullable=False),
+            sa.Column("mitre_tactic",      sa.String(),   nullable=True),
+            sa.Column("mitre_technique",   sa.String(),   nullable=True),
+            sa.Column("scan_context",      sa.String(),   nullable=True),
+            sa.Column("agent_id",   sa.Integer(), sa.ForeignKey("agents.id"),  nullable=True),
+            sa.Column("tenant_id",  sa.Integer(), sa.ForeignKey("tenants.id"), nullable=True),
+            sa.Column("created_at", sa.DateTime(), nullable=True),
+        )
+        op.create_index("ix_yara_scan_results_tenant_id",  "yara_scan_results", ["tenant_id"])
+        op.create_index("ix_yara_scan_results_created_at", "yara_scan_results", ["created_at"])
+    else:
+        existing_idx = {i['name'] for i in insp.get_indexes("yara_scan_results")}
+        if "ix_yara_scan_results_tenant_id" not in existing_idx:
+            op.create_index("ix_yara_scan_results_tenant_id", "yara_scan_results", ["tenant_id"])
+        if "ix_yara_scan_results_created_at" not in existing_idx:
+            op.create_index("ix_yara_scan_results_created_at", "yara_scan_results", ["created_at"])
 
 
 def downgrade() -> None:
