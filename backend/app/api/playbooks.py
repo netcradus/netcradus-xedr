@@ -220,8 +220,14 @@ def manual_trigger(
     """Manually execute a playbook against a specific alert."""
     pb = _get_playbook(db, playbook_id, current_user.tenant_id)
 
+    from app.models.agent import Agent
     from app.models.alert import Alert
-    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    alert = (
+        db.query(Alert)
+        .join(Agent, Alert.agent_id == Agent.id)
+        .filter(Alert.id == alert_id, Agent.tenant_id == current_user.tenant_id)
+        .first()
+    )
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
 

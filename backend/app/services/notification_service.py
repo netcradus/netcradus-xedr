@@ -9,15 +9,57 @@ send_test_notification keeps the HTTP calls synchronous because it returns
 per-channel results to the caller immediately.
 """
 
+import ipaddress
 import smtplib
+import socket
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from urllib.parse import urlparse
 
 import requests as http
 from sqlalchemy.orm import Session
 
 from app.models.notification_config import NotificationConfig
+
+
+# ── Webhook SSRF guard ──────────────────────────────────────────────────────────
+#
+# Tenant-supplied Slack/Teams webhook URLs are fetched server-side (both on
+# every real alert and via the synchronous /notifications/test oracle), so an
+# unvalidated URL lets a tenant admin probe internal infrastructure or cloud
+# metadata endpoints (e.g. 169.254.169.254). Reject anything that isn't a
+# plain http(s) URL resolving to a public IP — checked both at save time (fast
+# feedback) and again immediately before each send (defends against DNS
+# rebinding between save and dispatch).
+
+class UnsafeWebhookURL(ValueError):
+    pass
+
+
+def validate_webhook_url(url: str) -> None:
+    if not url:
+        return
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise UnsafeWebhookURL("Webhook URL must be a plain http:// or https:// URL")
+
+    try:
+        addrs = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror:
+        raise UnsafeWebhookURL(f"Could not resolve webhook host: {parsed.hostname}")
+
+    for family, _, _, _, sockaddr in addrs:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if (
+            ip.is_private or ip.is_loopback or ip.is_link_local
+            or ip.is_reserved or ip.is_multicast or ip.is_unspecified
+        ):
+            raise UnsafeWebhookURL(
+                f"Webhook host resolves to a non-public address ({ip}) — not allowed"
+            )
+
 
 # ── Config helper ─────────────────────────────────────────────────────────────
 
@@ -55,6 +97,7 @@ _SEVERITY_EMOJI = {
 
 def _send_slack(webhook_url: str, payload: dict) -> None:
     try:
+        validate_webhook_url(webhook_url)
         r = http.post(webhook_url, json=payload, timeout=5)
         r.raise_for_status()
     except Exception as e:
@@ -136,6 +179,7 @@ def _slack_incident_payload(title: str, severity: str, alert_count: int, endpoin
 
 def _send_teams(webhook_url: str, payload: dict) -> None:
     try:
+        validate_webhook_url(webhook_url)
         r = http.post(webhook_url, json=payload, timeout=5)
         r.raise_for_status()
     except Exception as e:
@@ -379,8 +423,11 @@ def send_test_notification(db: Session, tenant_id: int) -> dict:
 
     if cfg.slack_webhook_url:
         try:
+            validate_webhook_url(cfg.slack_webhook_url)
             r = http.post(cfg.slack_webhook_url, json=test_payload, timeout=5)
             result["slack"] = "ok" if r.ok else f"HTTP {r.status_code}"
+        except UnsafeWebhookURL as e:
+            result["slack"] = f"blocked: {e}"
         except Exception as e:
             result["slack"] = str(e)
     else:
@@ -388,10 +435,13 @@ def send_test_notification(db: Session, tenant_id: int) -> dict:
 
     if cfg.teams_webhook_url:
         try:
+            validate_webhook_url(cfg.teams_webhook_url)
             payload = _teams_alert_payload("Test Alert", "High", "TEST-HOST-01", "T1059",
                                            "This is a test notification from NetcradXDR.")
             r = http.post(cfg.teams_webhook_url, json=payload, timeout=5)
             result["teams"] = "ok" if r.ok else f"HTTP {r.status_code}"
+        except UnsafeWebhookURL as e:
+            result["teams"] = f"blocked: {e}"
         except Exception as e:
             result["teams"] = str(e)
     else:

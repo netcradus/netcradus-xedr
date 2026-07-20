@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 from app.database.db import get_db
 from app.core.permissions import admin_required, analyst_required
 from app.models.user import User
-from app.services.notification_service import get_or_create_config, send_test_notification
+from app.services.notification_service import (
+    get_or_create_config, send_test_notification,
+    validate_webhook_url, UnsafeWebhookURL,
+)
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -66,6 +69,16 @@ def update_config(
     db: Session = Depends(get_db),
 ):
     cfg = get_or_create_config(db, current_user.tenant_id)
+
+    # Reject webhook URLs that resolve to internal/private/metadata addresses
+    # before persisting them (SSRF guard — see notification_service.py).
+    try:
+        if payload.slack_webhook_url:
+            validate_webhook_url(payload.slack_webhook_url)
+        if payload.teams_webhook_url:
+            validate_webhook_url(payload.teams_webhook_url)
+    except UnsafeWebhookURL as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     # Update only fields that were explicitly provided
     if payload.slack_webhook_url is not None:
