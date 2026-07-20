@@ -64,18 +64,28 @@ def register_agent_if_needed():
         return
 
     hostname = socket.gethostname()
+    tenant_api_key = os.getenv(
+        "NETCRADXDR_TENANT_API_KEY",
+        config.get("tenant_api_key", ""),
+    )
+    payload = {
+        "hostname":           hostname,
+        "ip_address":         socket.gethostbyname(hostname),
+        "os_type":            platform.system(),
+        "agent_version":      config.get("agent_version", "1.0.0"),
+        "registration_token": os.getenv(
+            "NETCRADXDR_AGENT_REGISTRATION_TOKEN",
+            config.get("registration_token", ""),
+        ),
+    }
+    # Unset falls back to the shared "Default" tenant server-side; only send
+    # this when actually configured.
+    if tenant_api_key:
+        payload["tenant_api_key"] = tenant_api_key
+
     response = requests.post(
         f"{SERVER_URL}/agents/register",
-        json={
-            "hostname":           hostname,
-            "ip_address":         socket.gethostbyname(hostname),
-            "os_type":            platform.system(),
-            "agent_version":      config.get("agent_version", "1.0.0"),
-            "registration_token": os.getenv(
-                "NETCRADXDR_AGENT_REGISTRATION_TOKEN",
-                config.get("registration_token", ""),
-            ),
-        },
+        json=payload,
         timeout=10,
     )
     response.raise_for_status()

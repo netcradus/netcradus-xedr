@@ -1,4 +1,8 @@
-export const BASE_URL = 'http://127.0.0.1:8888/api/v1'
+// Relative on purpose: nginx (production) and the Vite dev server (see
+// vite.config.ts) both proxy /api/v1 to the backend, so the frontend never
+// needs to know the backend's actual host or port. Same-origin also keeps
+// the httpOnly refresh cookie simple — no cross-port CORS to reason about.
+export const BASE_URL = '/api/v1'
 
 const TOKEN_KEY   = 'netcrad_token'
 const SESSION_KEY = 'netcrad_session'
