@@ -37,6 +37,7 @@ try:
             role_id=superadmin_role.id,
             tenant_id=tenant.id,
             is_active=True,
+            email_verified=True,
         ))
         db.commit()
         print("Done — login: admin@netcradus.com / Admin@1234")
