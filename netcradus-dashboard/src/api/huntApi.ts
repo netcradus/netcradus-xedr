@@ -45,6 +45,18 @@ export interface HuntHit {
   occurrence_count?: number | null
 }
 
+export interface DetectionRuleHit {
+  id?: number
+  name?: string
+  description?: string | null
+  rule_type?: string | null
+  severity?: string | null
+  mitre_tactic?: string | null
+  mitre_technique?: string | null
+  enabled?: boolean
+  is_system?: boolean
+}
+
 export interface HuntResult {
   query: Record<string, unknown>
   total: number
@@ -58,7 +70,7 @@ export interface HuntResult {
   summary?: Record<string, unknown>
   // mitre-specific
   alerts?: HuntHit[]
-  detection_rules?: HuntHit[]
+  detection_rules?: DetectionRuleHit[]
 }
 
 // ── Query builder ──────────────────────────────────────────────────────────────

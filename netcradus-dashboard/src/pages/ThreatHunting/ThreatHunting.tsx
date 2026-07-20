@@ -352,7 +352,7 @@ function cols(key: HuntKey, term: string, pivot: (v: string) => void) {
           <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
             {HOST(h)}
             <td className="px-3 py-2.5 max-w-[240px]">
-              <p className="text-xs font-medium text-gray-700 truncate">{h.title ?? h.name ?? '—'}</p>
+              <p className="text-xs font-medium text-gray-700 truncate">{h.title ?? '—'}</p>
             </td>
             <td className="px-3 py-2.5">
               {h.severity

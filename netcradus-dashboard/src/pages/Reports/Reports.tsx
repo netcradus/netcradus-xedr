@@ -291,8 +291,8 @@ function OverviewTab({ data }: { data: ReportSummary }) {
                   tick={{ fontSize: 10, fill: '#6B7280' }} />
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
-                  formatter={(v: number, _: string, p: { payload: typeof mitreData[0] }) =>
-                    [v, p.payload.full]}
+                  formatter={(v: number, _n: string, p: { payload?: typeof mitreData[0] }) =>
+                    [v, p.payload?.full ?? '']}
                 />
                 <Bar dataKey="count" fill="#3B82F6" radius={[0, 4, 4, 0]} />
               </BarChart>

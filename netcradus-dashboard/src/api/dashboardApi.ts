@@ -137,12 +137,13 @@ export async function fetchDashboardData() {
   const severityBreakdown: SeverityBreakdown[] = (() => {
     const total = stats.critical + stats.high + stats.medium + stats.low
     if (total === 0) return []
-    return [
-      { severity: 'Critical' as SeverityBreakdown['severity'], count: stats.critical, percent: Math.round((stats.critical / total) * 100) },
+    const rows: SeverityBreakdown[] = [
+      { severity: 'Critical', count: stats.critical, percent: Math.round((stats.critical / total) * 100) },
       { severity: 'High', count: stats.high, percent: Math.round((stats.high / total) * 100) },
       { severity: 'Medium', count: stats.medium, percent: Math.round((stats.medium / total) * 100) },
       { severity: 'Low', count: stats.low, percent: Math.round((stats.low / total) * 100) },
-    ].filter((s) => s.count > 0)
+    ]
+    return rows.filter((s) => s.count > 0)
   })()
 
   const agentMap = new Map(agents.map((a) => [a.id, a]))

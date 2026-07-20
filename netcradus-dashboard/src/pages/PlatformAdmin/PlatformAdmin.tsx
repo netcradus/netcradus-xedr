@@ -1295,7 +1295,7 @@ export default function PlatformAdmin() {
               {user?.initials ?? 'PA'}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate">{user?.name ?? 'Platform Admin'}</p>
+              <p className="text-xs font-semibold text-white truncate">{user ? `${user.firstName} ${user.lastName}`.trim() : 'Platform Admin'}</p>
               <p className="text-[10px] text-white/40 truncate">{user?.email}</p>
             </div>
             <button onClick={handleLogout} title="Sign out"

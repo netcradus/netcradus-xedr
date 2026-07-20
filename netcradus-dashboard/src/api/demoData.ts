@@ -706,6 +706,14 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
       return { status: 'accepted', task_id: 'demo-task-lookup' } as unknown as T
     }
 
+    // PATCH /browser-security/events/{id}
+    const browserEventMatch = base.match(/^\/browser-security\/events\/(\d+)$/)
+    if (method === 'PATCH' && browserEventMatch) {
+      const id = parseInt(browserEventMatch[1])
+      const ev = DEMO_BROWSER_EVENTS.find((e) => e.id === id) ?? DEMO_BROWSER_EVENTS[0]
+      return { ...ev, status: 'acknowledged' } as unknown as T
+    }
+
     return {} as unknown as T
   }
 
@@ -793,11 +801,6 @@ export function resolveDemoResponse<T>(path: string, method = 'GET'): T {
   // ── GET: Browser Security ─────────────────────────────────────────────────
   if (base === '/browser-security/dashboard') return DEMO_BROWSER_DASHBOARD as unknown as T
   if (base === '/browser-security/events')    return DEMO_BROWSER_EVENTS    as unknown as T
-
-  // ── PATCH: Browser Security event status ──────────────────────────────────
-  if (method === 'PATCH' && base.match(/^\/browser-security\/events\/\d+$/)) {
-    return { id: 1, status: 'acknowledged' } as unknown as T
-  }
 
   return [] as unknown as T
 }

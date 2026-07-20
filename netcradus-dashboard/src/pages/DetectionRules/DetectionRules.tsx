@@ -803,7 +803,9 @@ export default function DetectionRules() {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
                         {rule.is_system && (
-                          <Lock size={11} className="text-gray-400 shrink-0" title="Built-in system rule" />
+                          <span title="Built-in system rule" className="inline-flex shrink-0">
+                            <Lock size={11} className="text-gray-400" />
+                          </span>
                         )}
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{rule.name}</p>
