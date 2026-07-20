@@ -10,6 +10,8 @@ from process_monitor import collect_processes
 from network_monitor import collect_network
 from file_monitor import start_file_monitor
 from persistence_monitor import collect_persistence
+from dns_monitor import collect_dns
+from usb_monitor import collect_usb
 from command_executor import execute_command
 from heartbeat import send_heartbeat
 from syslog_monitor import collect_syslog
@@ -120,6 +122,8 @@ def main():
             collect_processes(SERVER_URL, AGENT_TOKEN)
             collect_network(SERVER_URL, AGENT_TOKEN)
             collect_persistence(SERVER_URL, AGENT_TOKEN)
+            collect_dns(SERVER_URL, AGENT_TOKEN)
+            collect_usb(SERVER_URL, AGENT_TOKEN)
 
             # Log ingestion
             _collect_logs()
