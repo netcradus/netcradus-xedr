@@ -152,11 +152,11 @@ export default function Onboarding() {
             <div className="space-y-3">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Windows (PowerShell)</p>
-                <CopyBox value={`$env:TENANT_API_KEY="${apiKey ?? '<YOUR_API_KEY>'}"; python agent.py`} />
+                <CopyBox value={`$env:NETCRADXDR_TENANT_API_KEY="${apiKey ?? '<YOUR_API_KEY>'}"; python main.py`} />
               </div>
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Linux / macOS (bash)</p>
-                <CopyBox value={`TENANT_API_KEY="${apiKey ?? '<YOUR_API_KEY>'}" python3 agent.py`} />
+                <CopyBox value={`NETCRADXDR_TENANT_API_KEY="${apiKey ?? '<YOUR_API_KEY>'}" python3 main.py`} />
               </div>
             </div>
 

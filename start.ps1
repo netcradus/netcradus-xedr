@@ -16,9 +16,13 @@ $backendJob = Start-Job -Name "Backend" -ScriptBlock {
 } -ArgumentList $root
 
 # ── Frontend ─────────────────────────────────────────────────────────────────
+# VITE_BACKEND_URL must match the backend's --port above (8888), or the Vite
+# dev proxy falls back to its own default (8000) and every API call fails
+# with ECONNREFUSED even though the backend is up and healthy.
 $frontendJob = Start-Job -Name "Frontend" -ScriptBlock {
     param($root)
     Set-Location "$root\netcradus-dashboard"
+    $env:VITE_BACKEND_URL = "http://127.0.0.1:8888"
     npm run dev 2>&1
 } -ArgumentList $root
 
