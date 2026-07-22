@@ -30,6 +30,7 @@ from app.models.alert import Alert
 from app.models.incident import Incident
 from app.models.user import User
 from app.services import incident_service
+from app.services.enrichment_service import get_or_create_config
 from app.services.ai_service import (
     build_attack_chain,
     chat_with_copilot,
@@ -251,6 +252,11 @@ def _ai_error(exc: Exception):
     raise HTTPException(status_code=502, detail=f"AI service error: {exc}")
 
 
+def _groq_key_for(db: Session, tenant_id: int) -> str | None:
+    """Tenant's own Groq key (Settings > Organization > AI Assistant), if set."""
+    return get_or_create_config(db, tenant_id).groq_api_key
+
+
 # ── Existing endpoints (preserved) ────────────────────────────────────────────
 
 @router.post("/incident-summary")
@@ -272,7 +278,7 @@ def ai_incident_summary(
         "created_at": str(incident.created_at),
     }
     try:
-        return generate_incident_summary(incident_dict, raw_alerts)
+        return generate_incident_summary(incident_dict, raw_alerts, api_key=_groq_key_for(db, current_user.tenant_id))
     except Exception as exc:
         _ai_error(exc)
 
@@ -284,7 +290,7 @@ def ai_nl_query(
         db: Session = Depends(get_db)):
 
     try:
-        parsed = parse_nl_query(request.query)
+        parsed = parse_nl_query(request.query, api_key=_groq_key_for(db, current_user.tenant_id))
     except Exception as exc:
         _ai_error(exc)
 
@@ -358,7 +364,10 @@ def ai_playbook_recommendation(
         current_user: User = Depends(analyst_required),
         db: Session = Depends(get_db)):
     try:
-        return generate_playbook_recommendation(request.mitre_techniques, request.context)
+        return generate_playbook_recommendation(
+            request.mitre_techniques, request.context,
+            api_key=_groq_key_for(db, current_user.tenant_id),
+        )
     except Exception as exc:
         _ai_error(exc)
 
@@ -380,7 +389,7 @@ def copilot_explain(
     alert, agent = _get_alert(db, alert_id, current_user.tenant_id)
     ctx = _build_telemetry_context(db, alert, agent)
     try:
-        return explain_alert(_alert_to_dict(alert, agent), ctx)
+        return explain_alert(_alert_to_dict(alert, agent), ctx, api_key=_groq_key_for(db, current_user.tenant_id))
     except Exception as exc:
         _ai_error(exc)
 
@@ -401,7 +410,7 @@ def copilot_root_cause(
     alert, agent = _get_alert(db, alert_id, current_user.tenant_id)
     ctx = _build_telemetry_context(db, alert, agent)
     try:
-        return analyze_root_cause(_alert_to_dict(alert, agent), ctx)
+        return analyze_root_cause(_alert_to_dict(alert, agent), ctx, api_key=_groq_key_for(db, current_user.tenant_id))
     except Exception as exc:
         _ai_error(exc)
 
@@ -421,7 +430,7 @@ def copilot_remediation(
     alert, agent = _get_alert(db, alert_id, current_user.tenant_id)
     ctx = _build_telemetry_context(db, alert, agent)
     try:
-        return generate_alert_remediation(_alert_to_dict(alert, agent), ctx)
+        return generate_alert_remediation(_alert_to_dict(alert, agent), ctx, api_key=_groq_key_for(db, current_user.tenant_id))
     except Exception as exc:
         _ai_error(exc)
 
@@ -448,7 +457,7 @@ def copilot_attack_chain(
     events = _events_for_chain(ctx, alert_dict)
 
     try:
-        chain = build_attack_chain(alert_dict, events)
+        chain = build_attack_chain(alert_dict, events, api_key=_groq_key_for(db, current_user.tenant_id))
     except Exception as exc:
         _ai_error(exc)
 
@@ -499,6 +508,9 @@ def copilot_chat(
     history_dicts = [{"role": h.role, "content": h.content} for h in request.history]
 
     try:
-        return chat_with_copilot(request.message, system_context, history_dicts)
+        return chat_with_copilot(
+            request.message, system_context, history_dicts,
+            api_key=_groq_key_for(db, current_user.tenant_id),
+        )
     except Exception as exc:
         _ai_error(exc)

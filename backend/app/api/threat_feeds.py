@@ -24,9 +24,11 @@ def _config_response(config) -> "FeedConfigResponse":
         virustotal_api_key=_MASK if config.virustotal_api_key else None,
         abuseipdb_api_key =_MASK if config.abuseipdb_api_key  else None,
         otx_api_key       =_MASK if config.otx_api_key         else None,
+        groq_api_key      =_MASK if config.groq_api_key        else None,
         has_virustotal    =bool(config.virustotal_api_key),
         has_abuseipdb     =bool(config.abuseipdb_api_key),
         has_otx           =bool(config.otx_api_key),
+        has_groq          =bool(config.groq_api_key),
     )
 
 
@@ -36,15 +38,18 @@ class FeedConfigResponse(BaseModel):
     virustotal_api_key: Optional[str] = None
     abuseipdb_api_key:  Optional[str] = None
     otx_api_key:        Optional[str] = None
+    groq_api_key:       Optional[str] = None
     has_virustotal: bool = False
     has_abuseipdb:  bool = False
     has_otx:        bool = False
+    has_groq:       bool = False
 
 
 class UpdateFeedConfigRequest(BaseModel):
     virustotal_api_key: Optional[str] = None
     abuseipdb_api_key:  Optional[str] = None
     otx_api_key:        Optional[str] = None
+    groq_api_key:       Optional[str] = None
 
 
 class LookupRequest(BaseModel):
@@ -67,13 +72,20 @@ def update_feed_config(
         request: UpdateFeedConfigRequest,
         current_user: User = Depends(admin_required),
         db: Session = Depends(get_db)):
+    # A field equal to _MASK means the client never touched it (the GET
+    # response only ever shows the mask for an already-set key) — leave it
+    # alone. Anything else, including an explicit null/empty string, is a
+    # real instruction and must be applied — otherwise there is no way to
+    # clear a previously-set key from the UI.
     config = get_or_create_config(db, current_user.tenant_id)
-    if request.virustotal_api_key is not None and request.virustotal_api_key != _MASK:
+    if request.virustotal_api_key != _MASK:
         config.virustotal_api_key = request.virustotal_api_key or None
-    if request.abuseipdb_api_key is not None and request.abuseipdb_api_key != _MASK:
+    if request.abuseipdb_api_key != _MASK:
         config.abuseipdb_api_key = request.abuseipdb_api_key or None
-    if request.otx_api_key is not None and request.otx_api_key != _MASK:
+    if request.otx_api_key != _MASK:
         config.otx_api_key = request.otx_api_key or None
+    if request.groq_api_key != _MASK:
+        config.groq_api_key = request.groq_api_key or None
     db.commit()
     db.refresh(config)
     return _config_response(config)

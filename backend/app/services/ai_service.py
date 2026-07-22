@@ -80,27 +80,32 @@ _TECHNIQUE_NAMES: dict[str, str] = {
 
 # ── Core Groq calls ───────────────────────────────────────────────────────────
 
-def _groq_key() -> str:
-    key = os.environ.get("GROQ_API_KEY", "")
+def _groq_key(override: Optional[str] = None) -> str:
+    """Resolve the Groq key to use: a tenant's own key (Settings > Organization
+    > AI Assistant) takes priority; falls back to the platform-wide
+    GROQ_API_KEY env var when the tenant hasn't set one."""
+    key = override or os.environ.get("GROQ_API_KEY", "")
     if not key:
         raise ValueError(
             "GROQ_API_KEY is not set. "
-            "Add it to your environment to enable AI features."
+            "Add it to your environment, or have an Admin set one in "
+            "Settings > Organization > AI Assistant, to enable AI features."
         )
     return key
 
 
-def _call_groq(system: str, user: str, max_tokens: int = 1024) -> str:
+def _call_groq(system: str, user: str, max_tokens: int = 1024, api_key: Optional[str] = None) -> str:
     return _call_groq_messages(
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
         max_tokens,
+        api_key,
     )
 
 
-def _call_groq_messages(messages: list[dict], max_tokens: int = 1200) -> str:
+def _call_groq_messages(messages: list[dict], max_tokens: int = 1200, api_key: Optional[str] = None) -> str:
     r = http_client.post(
         _API_URL,
-        headers={"Authorization": f"Bearer {_groq_key()}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {_groq_key(api_key)}", "Content-Type": "application/json"},
         json={"model": _MODEL, "max_tokens": max_tokens, "messages": messages},
         timeout=45,
     )
@@ -140,7 +145,7 @@ Output ONLY valid JSON matching exactly this schema (no markdown fences, no extr
 }"""
 
 
-def generate_incident_summary(incident: dict, alerts: list) -> dict:
+def generate_incident_summary(incident: dict, alerts: list, api_key: Optional[str] = None) -> dict:
     alerts_text = "\n".join(
         f"  - [{a.get('severity','?')}] {a.get('title','?')} "
         f"on {a.get('agent_hostname','unknown')} "
@@ -165,7 +170,7 @@ Correlated Alerts:
 
 Generate the incident summary JSON."""
 
-    text = _call_groq(_SUMMARY_SYSTEM, user, max_tokens=800)
+    text = _call_groq(_SUMMARY_SYSTEM, user, max_tokens=800, api_key=api_key)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -209,8 +214,8 @@ Output ONLY valid JSON (no markdown fences) matching exactly:
 }"""
 
 
-def parse_nl_query(query: str) -> dict:
-    text = _call_groq(_NL_QUERY_SYSTEM, f"Parse this query: {query}", max_tokens=300)
+def parse_nl_query(query: str, api_key: Optional[str] = None) -> dict:
+    text = _call_groq(_NL_QUERY_SYSTEM, f"Parse this query: {query}", max_tokens=300, api_key=api_key)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -246,14 +251,14 @@ Output ONLY valid JSON (no markdown fences) matching exactly:
 Include 5-8 steps covering the full incident response lifecycle."""
 
 
-def generate_playbook_recommendation(mitre_techniques: list, context: str = "") -> dict:
+def generate_playbook_recommendation(mitre_techniques: list, context: str = "", api_key: Optional[str] = None) -> dict:
     techs = ", ".join(mitre_techniques) if mitre_techniques else "Unknown technique"
     user = f"""MITRE ATT&CK Techniques detected: {techs}
 Additional context: {context or 'No additional context provided.'}
 
 Generate a response playbook."""
 
-    text = _call_groq(_PLAYBOOK_SYSTEM, user, max_tokens=1400)
+    text = _call_groq(_PLAYBOOK_SYSTEM, user, max_tokens=1400, api_key=api_key)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -420,12 +425,13 @@ Output ONLY valid JSON (no markdown) matching exactly:
 }"""
 
 
-def explain_alert(alert: dict, ctx: dict) -> dict:
+def explain_alert(alert: dict, ctx: dict, api_key: Optional[str] = None) -> dict:
     context_str = _fmt_context(alert, ctx)
     text = _call_groq(
         _EXPLAIN_SYSTEM,
         f"Explain this security alert:\n\n{context_str}",
         max_tokens=700,
+        api_key=api_key,
     )
     return _parse_json(text, {
         "headline": alert.get("title", "Alert explanation unavailable"),
@@ -458,12 +464,13 @@ Output ONLY valid JSON (no markdown) matching exactly:
 }"""
 
 
-def analyze_root_cause(alert: dict, ctx: dict) -> dict:
+def analyze_root_cause(alert: dict, ctx: dict, api_key: Optional[str] = None) -> dict:
     context_str = _fmt_context(alert, ctx)
     text = _call_groq(
         _ROOT_CAUSE_SYSTEM,
         f"Perform root cause analysis on this alert:\n\n{context_str}",
         max_tokens=900,
+        api_key=api_key,
     )
     return _parse_json(text, {
         "root_cause": "Could not determine root cause from available telemetry.",
@@ -501,12 +508,13 @@ Output ONLY valid JSON (no markdown) matching exactly:
 Include 3-5 items per list. Reference specific evidence from the telemetry."""
 
 
-def generate_alert_remediation(alert: dict, ctx: dict) -> dict:
+def generate_alert_remediation(alert: dict, ctx: dict, api_key: Optional[str] = None) -> dict:
     context_str = _fmt_context(alert, ctx)
     text = _call_groq(
         _REMEDIATION_SYSTEM,
         f"Generate remediation steps for this alert:\n\n{context_str}",
         max_tokens=900,
+        api_key=api_key,
     )
     return _parse_json(text, {
         "urgency": "Urgent",
@@ -559,7 +567,7 @@ Order by sequence number ascending (chronological).
 Limit to 15 chain events maximum."""
 
 
-def build_attack_chain(alert: dict, events: list[dict]) -> dict:
+def build_attack_chain(alert: dict, events: list[dict], api_key: Optional[str] = None) -> dict:
     events_text = "\n".join(
         f"  [{e.get('timestamp','')[:19]}] [{e.get('type','?')}] {e.get('summary','?')}"
         for e in events[:40]
@@ -572,7 +580,7 @@ def build_attack_chain(alert: dict, events: list[dict]) -> dict:
         f"Events around the alert:\n{events_text}\n\n"
         f"Build the attack chain."
     )
-    text = _call_groq(_ATTACK_CHAIN_SYSTEM, user_msg, max_tokens=1400)
+    text = _call_groq(_ATTACK_CHAIN_SYSTEM, user_msg, max_tokens=1400, api_key=api_key)
     return _parse_json(text, {
         "summary": f"Alert '{alert.get('title')}' detected. Insufficient telemetry to reconstruct full chain.",
         "attacker_stage": "Execution",
@@ -612,6 +620,7 @@ def chat_with_copilot(
     message: str,
     system_context: Optional[str] = None,
     history: Optional[list[dict]] = None,
+    api_key: Optional[str] = None,
 ) -> dict:
     """Multi-turn chat. history is [{role, content}, ...] in OpenAI format."""
     messages: list[dict] = [{"role": "system", "content": _CHAT_SYSTEM}]
@@ -629,7 +638,7 @@ def chat_with_copilot(
 
     messages.append({"role": "user", "content": message})
 
-    text = _call_groq_messages(messages, max_tokens=800)
+    text = _call_groq_messages(messages, max_tokens=800, api_key=api_key)
     return _parse_json(text, {
         "answer": text[:1000],
         "confidence": "Medium",

@@ -19,6 +19,7 @@ import {
   Smartphone,
   Lock,
   Unlock,
+  Sparkles,
 } from 'lucide-react'
 import Topbar from '@/components/layout/Topbar/Topbar'
 import Card from '@/components/ui/Card/Card'
@@ -32,8 +33,9 @@ import {
   toggleUserStatus,
   changePassword,
 } from '@/api/settingsApi'
+import { fetchFeedConfig, updateFeedConfig } from '@/api/threatFeedsApi'
 import { apiMfaSetup, apiMfaEnable, apiMfaDisable, type MFASetupData } from '@/api/authApi'
-import type { BackendTeamMember, BackendOrg } from '@/types/api.types'
+import type { BackendTeamMember, BackendOrg, ThreatFeedConfig } from '@/types/api.types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -216,12 +218,41 @@ function OrgTab({ isAdmin }: { isAdmin: boolean }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [feedConfig, setFeedConfig] = useState<ThreatFeedConfig | null>(null)
+  const [groqKey, setGroqKey] = useState('')
+  const [showGroqKey, setShowGroqKey] = useState(false)
+  const [groqSaving, setGroqSaving] = useState(false)
+  const [groqSaved, setGroqSaved] = useState(false)
+  const [groqError, setGroqError] = useState<string | null>(null)
+
   useEffect(() => {
     fetchOrg()
       .then((data) => { setOrg(data); setOrgName(data.name) })
       .catch(() => setError('Failed to load organization info'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    fetchFeedConfig()
+      .then((c) => { setFeedConfig(c); setGroqKey(c.groq_api_key ?? '') })
+      .catch(() => {})
+  }, [isAdmin])
+
+  async function saveGroqKey() {
+    setGroqSaving(true)
+    setGroqError(null)
+    try {
+      const updated = await updateFeedConfig({ groq_api_key: groqKey || null })
+      setFeedConfig(updated)
+      setGroqSaved(true)
+      setTimeout(() => setGroqSaved(false), 2500)
+    } catch (e: unknown) {
+      setGroqError(e instanceof Error ? e.message : 'Failed to save key')
+    } finally {
+      setGroqSaving(false)
+    }
+  }
 
   async function saveOrgName() {
     if (!orgName.trim() || orgName === org?.name) return
@@ -326,6 +357,65 @@ function OrgTab({ isAdmin }: { isAdmin: boolean }) {
           </p>
         </div>
       </Card>
+
+      {/* AI Assistant */}
+      {isAdmin && (
+        <Card>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-10 w-10 rounded-xl bg-teal-50 flex items-center justify-center">
+              <Sparkles size={20} className="text-teal-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">AI Assistant</h3>
+              <p className="text-xs text-gray-400">Groq API key powering AI Query and the Security Copilot</p>
+            </div>
+            <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${
+              feedConfig?.has_groq ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+            }`}>
+              {feedConfig?.has_groq ? 'Configured' : 'Using platform default'}
+            </span>
+          </div>
+
+          <div className="max-w-md">
+            <label className="text-xs font-medium text-gray-600 block mb-1.5">Groq API Key</label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={showGroqKey ? 'text' : 'password'}
+                  value={groqKey}
+                  onChange={(e) => setGroqKey(e.target.value)}
+                  placeholder="Leave blank to use the platform's default key"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGroqKey((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showGroqKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <button
+                onClick={saveGroqKey}
+                disabled={groqSaving}
+                className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors disabled:opacity-40"
+              >
+                {groqSaving ? <RefreshCw size={13} className="animate-spin" /> : groqSaved ? <Check size={13} className="text-green-400" /> : null}
+                {groqSaving ? 'Saving…' : groqSaved ? 'Saved' : 'Save'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Get a free key at <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">console.groq.com</span>.
+              Setting your own key here uses your own quota instead of the platform-wide default.
+            </p>
+            {groqError && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2.5">
+                <AlertTriangle size={14} /> {groqError}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Plan */}
       <Card>

@@ -92,9 +92,11 @@ export interface ThreatFeedConfig {
   virustotal_api_key: string | null
   abuseipdb_api_key:  string | null
   otx_api_key:        string | null
+  groq_api_key:       string | null
   has_virustotal: boolean
   has_abuseipdb:  boolean
   has_otx:        boolean
+  has_groq:       boolean
 }
 
 export interface FeedResult {

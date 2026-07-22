@@ -11,4 +11,7 @@ class ThreatFeedConfig(Base):
     virustotal_api_key = Column(String(512), nullable=True)
     abuseipdb_api_key  = Column(String(512), nullable=True)
     otx_api_key        = Column(String(512), nullable=True)
+    # Per-tenant override for the AI Query Assistant's Groq key. Falls back to
+    # the platform-wide GROQ_API_KEY env var when unset (see ai_service.py).
+    groq_api_key       = Column(String(512), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

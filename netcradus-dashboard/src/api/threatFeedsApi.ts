@@ -9,6 +9,7 @@ export async function updateFeedConfig(payload: {
   virustotal_api_key?: string | null
   abuseipdb_api_key?: string | null
   otx_api_key?: string | null
+  groq_api_key?: string | null
 }): Promise<ThreatFeedConfig> {
   return apiFetch<ThreatFeedConfig>('/threat-feeds/config', {
     method: 'PUT',
