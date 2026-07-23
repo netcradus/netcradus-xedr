@@ -1,5 +1,5 @@
 {
-  "server_url": "http://127.0.0.1:8888/api/v1",
+  "server_url": "http://192.168.1.21:8888/api/v1",
   "agent_token": "",
   "registration_token": "",
   "tenant_api_key": "",
