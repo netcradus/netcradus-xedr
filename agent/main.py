@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import platform
@@ -30,15 +31,30 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 with open(CONFIG_PATH, "r") as f:
     config = json.load(f)
 
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="NetcradXDR Agent")
+    parser.add_argument("--server", dest="server_url", help="Backend server URL, e.g. http://host:8888/api/v1")
+    parser.add_argument("--tenant-api-key", dest="tenant_api_key", help="Tenant API key used for first-time registration")
+    parser.add_argument("--registration-token", dest="registration_token", help="Agent registration token")
+    parser.add_argument("--agent-token", dest="agent_token", help="Existing agent token (skips registration)")
+    return parser.parse_args()
+
+
+ARGS = _parse_args()
+
+# Precedence: CLI flag > env var > config.json
 # server_url already contains /api/v1 — do not append it again
-SERVER_URL = os.getenv(
-    "NETCRADXDR_SERVER_URL",
-    config["server_url"],
+SERVER_URL = (
+    ARGS.server_url
+    or os.getenv("NETCRADXDR_SERVER_URL")
+    or config["server_url"]
 ).rstrip("/")
 
-AGENT_TOKEN = os.getenv(
-    "NETCRADXDR_AGENT_TOKEN",
-    config.get("agent_token", ""),
+AGENT_TOKEN = (
+    ARGS.agent_token
+    or os.getenv("NETCRADXDR_AGENT_TOKEN")
+    or config.get("agent_token", "")
 )
 
 POLL_INTERVAL = config.get("poll_interval", 10)
@@ -64,18 +80,20 @@ def register_agent_if_needed():
         return
 
     hostname = socket.gethostname()
-    tenant_api_key = os.getenv(
-        "NETCRADXDR_TENANT_API_KEY",
-        config.get("tenant_api_key", ""),
+    tenant_api_key = (
+        ARGS.tenant_api_key
+        or os.getenv("NETCRADXDR_TENANT_API_KEY")
+        or config.get("tenant_api_key", "")
     )
     payload = {
         "hostname":           hostname,
         "ip_address":         socket.gethostbyname(hostname),
         "os_type":            platform.system(),
         "agent_version":      config.get("agent_version", "1.0.0"),
-        "registration_token": os.getenv(
-            "NETCRADXDR_AGENT_REGISTRATION_TOKEN",
-            config.get("registration_token", ""),
+        "registration_token": (
+            ARGS.registration_token
+            or os.getenv("NETCRADXDR_AGENT_REGISTRATION_TOKEN")
+            or config.get("registration_token", "")
         ),
     }
     # Unset falls back to the shared "Default" tenant server-side; only send
