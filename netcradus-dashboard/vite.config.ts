@@ -6,7 +6,7 @@ import path from 'path'
 // so it works unmodified behind nginx in production. In dev, Vite's own
 // server proxies those same paths to the local backend — override the
 // target with VITE_BACKEND_URL if your backend isn't on the default port.
-const backendTarget = process.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
+const backendTarget = process.env.VITE_BACKEND_URL || 'http://127.0.0.1:8888'
 
 export default defineConfig({
   plugins: [react()],

@@ -34,7 +34,7 @@ with open(CONFIG_PATH, "r") as f:
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="NetcradXDR Agent")
-    parser.add_argument("--server", dest="server_url", help="Backend server URL, e.g. http://host:8888/api/v1")
+    parser.add_argument("--server", dest="server_url", help="Backend server URL, e.g. http://host:8888 or http://host:8888/api/v1")
     parser.add_argument("--tenant-api-key", dest="tenant_api_key", help="Tenant API key used for first-time registration")
     parser.add_argument("--registration-token", dest="registration_token", help="Agent registration token")
     parser.add_argument("--agent-token", dest="agent_token", help="Existing agent token (skips registration)")
@@ -43,13 +43,22 @@ def _parse_args():
 
 ARGS = _parse_args()
 
+
+def _normalize_server_url(url: str) -> str:
+    """Accept either the backend root URL or the versioned API base URL."""
+    url = url.rstrip("/")
+    if url.endswith("/api/v1"):
+        return url
+    return f"{url}/api/v1"
+
+
 # Precedence: CLI flag > env var > config.json
-# server_url already contains /api/v1 — do not append it again
-SERVER_URL = (
+# Accept either the backend root URL or the already-versioned API URL.
+SERVER_URL = _normalize_server_url(
     ARGS.server_url
     or os.getenv("NETCRADXDR_SERVER_URL")
     or config["server_url"]
-).rstrip("/")
+)
 
 AGENT_TOKEN = (
     ARGS.agent_token

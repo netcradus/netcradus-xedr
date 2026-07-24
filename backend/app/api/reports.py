@@ -21,6 +21,15 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 _REPORT_TYPES = {"daily_soc", "weekly_exec", "monthly_compliance"}
 
 
+def _enqueue_report_cache_refresh(tenant_id: int, redis) -> None:
+    if not redis:
+        return
+    try:
+        generate_report_cache_task.delay(tenant_id)
+    except Exception:
+        pass
+
+
 # ── GET /reports/summary ───────────────────────────────────────────────────────
 
 @router.get("/summary")
@@ -44,16 +53,13 @@ def get_summary(
         cached = redis.get(key)
         if cached:
             if redis.ttl(key) < 300:
-                generate_report_cache_task.delay(tid)
+                _enqueue_report_cache_refresh(tid, redis)
             return json.loads(cached)
 
     data = compute_summary(db, tid)
     if redis:
         redis.setex(key, 1800, json.dumps(data, default=str))
-    try:
-        generate_report_cache_task.delay(tid)
-    except Exception:
-        pass
+    _enqueue_report_cache_refresh(tid, redis)
     return data
 
 
