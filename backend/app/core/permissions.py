@@ -19,7 +19,12 @@ def superadmin_required(
             get_current_user
         )):
 
-    if current_user.role.name != "SuperAdmin":
+    allowed_roles = [
+        "PlatformAdmin",
+        "SuperAdmin"
+    ]
+
+    if current_user.role.name not in allowed_roles:
 
         raise HTTPException(
             status_code=403,
@@ -35,6 +40,7 @@ def admin_required(
         )):
 
     allowed_roles = [
+        "PlatformAdmin",
         "SuperAdmin",
         "Admin"
     ]
@@ -55,9 +61,11 @@ def analyst_required(
         )):
 
     allowed_roles = [
+        "PlatformAdmin",
         "SuperAdmin",
         "Admin",
-        "Analyst"
+        "Analyst",
+        "Viewer"
     ]
 
     if current_user.role.name not in allowed_roles:

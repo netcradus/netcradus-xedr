@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import ProtectedRoute from './ProtectedRoute'
 import Login from '@/pages/Auth/Login'
+import AdminLogin from '@/pages/Auth/AdminLogin'
 import Signup from '@/pages/Auth/Signup'
 import ForgotPassword from '@/pages/Auth/ForgotPassword'
 import ResetPassword from '@/pages/Auth/ResetPassword'
@@ -48,6 +49,9 @@ export default function AppRoutes() {
     <Routes>
       {/* Public auth routes — redirect away if already signed in */}
       <Route path="/login" element={<AuthRedirect><Login /></AuthRedirect>} />
+      <Route path="/user/login" element={<AuthRedirect><Login /></AuthRedirect>} />
+      <Route path="/admin/login" element={<AuthRedirect><AdminLogin /></AuthRedirect>} />
+      <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
       <Route path="/signup" element={<AuthRedirect><Signup /></AuthRedirect>} />
       <Route path="/forgot-password" element={<AuthRedirect><ForgotPassword /></AuthRedirect>} />
       <Route path="/reset-password" element={<ResetPassword />} />

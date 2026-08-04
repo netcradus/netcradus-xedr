@@ -75,8 +75,16 @@ def _derive_status(check_type: str | None, state: dict[str, bool]) -> str:
     return "compliant" if passed else "non_compliant"
 
 
-def refresh_assessments(db: Session, tenant_id: int) -> None:
+def _resolve_tenant_id(db: Session, tenant_id: int | None) -> int:
+    if tenant_id is not None:
+        return tenant_id
+    from app.services.tenant_service import create_default_tenant
+    return create_default_tenant(db).id
+
+
+def refresh_assessments(db: Session, tenant_id: int | None) -> None:
     """Re-derive all auto-check controls for a tenant, upsert assessments."""
+    tenant_id = _resolve_tenant_id(db, tenant_id)
     state = _xdr_state(db, tenant_id)
     now   = datetime.now(timezone.utc)
 
@@ -150,8 +158,9 @@ def _score_controls(controls: list, assessments: dict[int, str]) -> dict[str, An
     return {"score": pct, "compliant": passed, "missing": missing}
 
 
-def get_dashboard(db: Session, tenant_id: int) -> dict[str, Any]:
+def get_dashboard(db: Session, tenant_id: int | None) -> dict[str, Any]:
     """Return overall + per-framework scores and control details."""
+    tenant_id = _resolve_tenant_id(db, tenant_id)
     refresh_assessments(db, tenant_id)
 
     frameworks = db.query(ComplianceFramework).order_by(ComplianceFramework.id).all()

@@ -13,11 +13,18 @@ def seed_platform_admin(db: Session) -> None:
     if not email or not password:
         return
 
-    if db.query(User).filter(User.email == email).first():
-        return
-
     role = db.query(Role).filter(Role.name == "PlatformAdmin").first()
     if not role:
+        return
+
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        existing.role_id = role.id
+        existing.password = hash_password(password)
+        existing.email_verified = True
+        existing.is_active = True
+        db.commit()
+        print(f"[startup] Platform admin updated: {email}")
         return
 
     admin = User(

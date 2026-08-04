@@ -25,13 +25,11 @@ def create_user(db: Session, user: UserCreate):
         return None
     
     default_role = db.query(Role).filter(
-        Role.name == "Viewer"
+        Role.name == "Admin"
     ).first()
 
     if not default_role:
-        raise Exception(
-            "Viewer role does not exist. Seed roles first."
-        )
+        default_role = db.query(Role).filter(Role.name == "Viewer").first()
     
     default_tenant = db.query(
         Tenant

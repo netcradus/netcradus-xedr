@@ -38,12 +38,41 @@ def _severity_order():
     )
 
 
-def _base_query(db: Session, tenant_id: int):
-    return (
+def _base_query(db: Session, tenant_id: int | None):
+    q = (
         db.query(Alert, Agent.hostname)
         .join(Agent, Alert.agent_id == Agent.id)
-        .filter(Agent.tenant_id == tenant_id)
     )
+    if tenant_id is not None:
+        q = q.filter(Agent.tenant_id == tenant_id)
+    return q
+
+
+# ── GET /alerts/stats ─────────────────────────────────────────────────────────
+
+@router.get("/stats")
+def get_alert_stats(
+    current_user: User = Depends(analyst_required),
+    db: Session = Depends(get_db),
+):
+    stats = {"critical": 0, "high": 0, "medium": 0, "low": 0, "open": 0, "resolved": 0}
+
+    base = (
+        db.query(Alert)
+        .join(Agent, Alert.agent_id == Agent.id)
+    )
+    if current_user.tenant_id is not None:
+        base = base.filter(Agent.tenant_id == current_user.tenant_id)
+
+    for sev, cnt in base.with_entities(Alert.severity, func.count(Alert.id)).group_by(Alert.severity).all():
+        if (k := (sev or "").lower()) in stats:
+            stats[k] = cnt
+
+    for st, cnt in base.with_entities(Alert.status, func.count(Alert.id)).group_by(Alert.status).all():
+        if (k := (st or "").lower()) in stats:
+            stats[k] = cnt
+
+    return stats
 
 
 # ── GET /alerts/ ─────────────────────────────────────────────────────────────
@@ -133,32 +162,6 @@ def get_open_alerts(
         .all()
     )
     return [_serialize(a, hostname) for a, hostname in rows]
-
-
-# ── GET /alerts/stats ─────────────────────────────────────────────────────────
-
-@router.get("/stats")
-def get_alert_stats(
-    current_user: User = Depends(analyst_required),
-    db: Session = Depends(get_db),
-):
-    stats = {"critical": 0, "high": 0, "medium": 0, "low": 0, "open": 0, "resolved": 0}
-
-    base = (
-        db.query(Alert)
-        .join(Agent, Alert.agent_id == Agent.id)
-        .filter(Agent.tenant_id == current_user.tenant_id)
-    )
-
-    for sev, cnt in base.with_entities(Alert.severity, func.count(Alert.id)).group_by(Alert.severity).all():
-        if (k := (sev or "").lower()) in stats:
-            stats[k] = cnt
-
-    for st, cnt in base.with_entities(Alert.status, func.count(Alert.id)).group_by(Alert.status).all():
-        if (k := (st or "").lower()) in stats:
-            stats[k] = cnt
-
-    return stats
 
 
 # ── GET /alerts/{id} ─────────────────────────────────────────────────────────
