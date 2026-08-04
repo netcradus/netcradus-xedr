@@ -3,7 +3,7 @@ load_dotenv()  # loads backend/.env before any config is read
 
 import logging
 
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import FastAPI, Request
 from fastapi.exception_handlers import (
     http_exception_handler,
     request_validation_exception_handler,
