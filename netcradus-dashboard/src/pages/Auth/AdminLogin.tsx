@@ -162,7 +162,7 @@ export default function AdminLogin() {
           <input
             id="admin-email"
             type="email"
-            placeholder="admin@netcradus.com"
+            placeholder="admin@netxdr.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={`w-full px-3.5 py-2.5 text-sm rounded-lg border outline-none transition-colors focus:border-brand-blue focus:ring-[3px] focus:ring-brand-blue/10 ${

@@ -73,7 +73,7 @@ from app.services.playbook_seed import seed_playbooks
 from app.services.yara_rule_seed import seed_yara_rules
 from app.services.compliance_seed import seed_compliance
 
-app = FastAPI(title="NetcradXDR", version="1.0.0")
+app = FastAPI(title="NETXDR", version="1.0.0")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
